@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-multipart
+PyMuPDF
+langchain
+langchain-core
+langchain-groq
+motor
+qdrant-client
+sentence-transformers
