@@ -1,11 +1,24 @@
-export type Scores = {
+// Type definitions needed for Phase 6 components
+type Scores = {
   overall: number;
   skills_match: number;
   experience_relevance: number;
   keyword_coverage: number;
 };
 
-export type AnalysisResult = {
+type HistoryItem = {
+  analysis_id: string;
+  job_title: string;
+  timestamp: string;
+  scores: Scores;
+};
+
+type HistoryListResponse = {
+  analyses: HistoryItem[];
+  total: number;
+};
+
+type AnalysisResult = {
   analysis_id: string;
   job_title: string;
   timestamp: string;
@@ -17,7 +30,4 @@ export type AnalysisResult = {
   context_note?: string | null;
 };
 
-export type HistoryListResponse = {
-  analyses: Array<Pick<AnalysisResult, 'analysis_id' | 'job_title' | 'timestamp' | 'scores'>>;
-  total: number;
-};
+export type { Scores, AnalysisResult, HistoryItem, HistoryListResponse };

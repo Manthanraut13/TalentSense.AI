@@ -9,9 +9,11 @@ interface HistoryItemProps {
   item: HistoryItemType;
   onDelete: (analysisId: string) => void;
   sessionId: string;
+  isActive?: boolean;
+  analysisId?: string;
 }
 
-export function HistoryItem({ item, onDelete, sessionId }: HistoryItemProps) {
+export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }: HistoryItemProps) {
   const [deleting, setDeleting] = useState(false);
 
   const scoreColor = item.scores.overall >= 60 ? 'text-green-400' : 'text-amber-400';
@@ -39,7 +41,12 @@ export function HistoryItem({ item, onDelete, sessionId }: HistoryItemProps) {
   }
 
   return (
-    <div className="relative group rounded-lg border border-line bg-surface p-4 transition hover:bg-elevated">
+    <div
+      data-analysis-id={analysisId}
+      className={`relative group rounded-lg border border-line bg-surface p-4 transition hover:bg-elevated ${
+        isActive ? 'border-l-2 border-primary bg-primary-subtle' : ''
+      }`}
+    >
       <Link to={`/results/${item.analysis_id}`} className="block">
         <div className="flex items-center justify-between gap-4">
           <div>

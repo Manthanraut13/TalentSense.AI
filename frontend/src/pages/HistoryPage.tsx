@@ -5,7 +5,7 @@ import { HistoryItem } from '../components/HistoryItem';
 import { useSession } from '../context/SessionContext';
 import { fetchHistory } from '../lib/api';
 import { formatDate, scoreColorClass } from '../lib/format';
-import type { HistoryListResponse } from '../types';
+import type { HistoryListResponse, HistoryItem as HistoryItemType } from '../types';
 
 export function HistoryPage() {
   const { sessionId } = useSession();
@@ -20,7 +20,7 @@ export function HistoryPage() {
     if (history) {
       setHistory({
         ...history,
-        analyses: history.analyses.filter((item) => item.analysis_id !== analysisId),
+        analyses: history.analyses.filter((item: HistoryItemType) => item.analysis_id !== analysisId),
         total: history.total - 1,
       });
     }
@@ -47,7 +47,7 @@ export function HistoryPage() {
       ) : null}
 
       <div className="space-y-3">
-        {history?.analyses.map((item) => (
+        {history?.analyses.map((item: HistoryItemType) => (
           <HistoryItem
             key={item.analysis_id}
             item={item}
