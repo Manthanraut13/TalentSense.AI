@@ -81,10 +81,12 @@ class MongoService:
         document.update(
             {
                 "session_id": session_id,
-                "resume_snippet": resume_text[:500],
                 "qdrant_vector_id": qdrant_vector_id,
             }
         )
+        # Only store resume snippet if explicitly enabled (privacy setting)
+        if settings.store_resume_snippet:
+            document["resume_snippet"] = resume_text[:500]
         await collection.insert_one(document)
         return True
 

@@ -23,6 +23,7 @@ export function HomePage() {
   const [showColdStartWarning, setShowColdStartWarning] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const coldStartTimerRef = useRef<number | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isSubmitting) return;
@@ -54,6 +55,13 @@ export function HomePage() {
       }
     };
   }, [isSubmitting]);
+
+  // Focus error message when it appears
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.focus();
+    }
+  }, [error]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -159,21 +167,25 @@ export function HomePage() {
                   <button
                     type="button"
                     onClick={() => setInputMode('text')}
-                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm ${
+                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${
                       inputMode === 'text' ? 'bg-primary text-white' : 'text-textSecondary'
                     }`}
+                    aria-pressed={inputMode === 'text'}
+                    aria-label="Paste resume text"
                   >
-                    <AlignLeft size={16} />
+                    <AlignLeft size={16} aria-hidden="true" />
                     Paste
                   </button>
                   <button
                     type="button"
                     onClick={() => setInputMode('pdf')}
-                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm ${
+                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${
                       inputMode === 'pdf' ? 'bg-primary text-white' : 'text-textSecondary'
                     }`}
+                    aria-pressed={inputMode === 'pdf'}
+                    aria-label="Upload PDF resume"
                   >
-                    <Upload size={16} />
+                    <Upload size={16} aria-hidden="true" />
                     PDF
                   </button>
                 </div>
@@ -182,18 +194,23 @@ export function HomePage() {
                   <textarea
                     value={resumeText}
                     onChange={(event) => setResumeText(event.target.value)}
-                    className="mt-4 min-h-72 w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary"
+                    className="mt-4 min-h-72 w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
                     placeholder="Paste your resume text here..."
+                    required
+                    aria-required="true"
+                    aria-describedby="resume-help"
                   />
                 ) : (
                   <label className="mt-4 flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-line bg-base p-6 text-center transition hover:border-primary">
-                    <Upload className="mb-3 text-primary" size={28} />
+                    <Upload className="mb-3 text-primary" size={28} aria-hidden="true" />
                     <span className="font-medium">{resumeFile ? resumeFile.name : 'Drop your PDF here'}</span>
                     <span className="mt-2 text-sm text-textSecondary">PDF only, max 5MB</span>
                     <input
                       className="sr-only"
                       type="file"
                       accept="application/pdf"
+                      required
+                      aria-required="true"
                       onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
                     />
                   </label>
@@ -208,23 +225,31 @@ export function HomePage() {
                 <textarea
                   value={jobDescription}
                   onChange={(event) => setJobDescription(event.target.value)}
-                  className="mt-4 min-h-[336px] w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary"
+                  className="mt-4 min-h-[336px] w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
                   placeholder="Paste the full job description here..."
+                  required
+                  aria-required="true"
                 />
               </section>
             </div>
 
             {error ? (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+              <div
+                ref={errorRef}
+                tabIndex={-1}
+                className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300"
+                role="alert"
+                aria-live="assertive"
+              >
                 {error}
               </div>
             ) : null}
 
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)]"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
             >
-              <Zap size={18} />
+              <Zap size={18} aria-hidden="true" />
               Analyze Now
             </button>
           </form>

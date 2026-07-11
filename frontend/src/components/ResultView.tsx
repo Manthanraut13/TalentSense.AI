@@ -16,9 +16,10 @@ export function ResultView({ result }: { result: AnalysisResult }) {
         <h1 className="mt-1 text-3xl font-bold">{result.job_title}</h1>
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-[220px_1fr]">
+      <section aria-labelledby="score-heading" className="grid gap-4 lg:grid-cols-[220px_1fr]">
         <div className="rounded-lg border border-line bg-surface p-5">
-          <div className="mx-auto h-36 w-36">
+          <h2 id="score-heading" className="sr-only">Overall Match Score</h2>
+          <div className="mx-auto h-36 w-36" role="img" aria-label={`${score} percent match`}>
             <CircularProgressbar
               value={score}
               text={`${score}%`}
@@ -43,14 +44,14 @@ export function ResultView({ result }: { result: AnalysisResult }) {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <ListCard icon={<XCircle size={18} />} title="Missing Skills" tone="red" items={result.missing_skills} />
-        <ListCard icon={<Key size={18} />} title="ATS Keywords" tone="amber" items={result.ats_keywords} />
-        <ListCard icon={<CheckCircle2 size={18} />} title="Resume Strengths" tone="green" items={result.strengths} />
-        <ListCard icon={<Lightbulb size={18} />} title="Improvement Tips" tone="amber" items={result.improvement_tips} />
+        <ListCard icon={<XCircle size={18} aria-hidden="true" />} title="Missing Skills" tone="red" items={result.missing_skills} />
+        <ListCard icon={<Key size={18} aria-hidden="true" />} title="ATS Keywords" tone="amber" items={result.ats_keywords} />
+        <ListCard icon={<CheckCircle2 size={18} aria-hidden="true" />} title="Resume Strengths" tone="green" items={result.strengths} />
+        <ListCard icon={<Lightbulb size={18} aria-hidden="true" />} title="Improvement Tips" tone="amber" items={result.improvement_tips} />
       </section>
 
       {result.context_note ? (
-        <div className="rounded-lg border border-primary/20 bg-primary-subtle p-4 text-sm text-primary">
+        <div className="rounded-lg border border-primary/20 bg-primary-subtle p-4 text-sm text-primary" role="status" aria-live="polite">
           {result.context_note}
         </div>
       ) : null}

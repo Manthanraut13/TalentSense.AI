@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import logging
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 
 from app.api.deps import get_session_id
 from app.models.response import AnalysisResult
@@ -10,14 +10,40 @@ from app.services.chain import AnalysisServiceUnavailable, analysis_chain
 from app.services.mongo_service import mongo_service
 from app.services.parser import parse_pdf_upload, validate_job_description, validate_resume_text
 from app.services.qdrant_service import qdrant_service
+from app.services.rate_limiter import rate_limiter
 
 router = APIRouter(tags=["analysis"])
 logger = logging.getLogger(__name__)
 
 
+async def check_rate_limit(request: Request, session_id: str = Depends(get_session_id)) -> str:
+    """Rate limit by session ID."""
+    allowed, remaining, retry_after = rate_limiter.check_limit(session_id)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again after {retry_after} seconds.",
+            headers={
+                "X-RateLimit-Limit": str(rate_limiter._max_requests),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Window": str(rate_limiter._window_seconds),
+                "Retry-After": str(retry_after),
+            },
+        )
+    # Add rate limit headers to response
+    request.state.rate_limit_headers = {
+        "X-RateLimit-Limit": str(rate_limiter._max_requests),
+        "X-RateLimit-Remaining": str(remaining),
+        "X-RateLimit-Window": str(rate_limiter._window_seconds),
+    }
+    return session_id
+
+
 @router.post("/analyze", response_model=AnalysisResult)
 async def analyze_resume(
-    session_id: str = Depends(get_session_id),
+    request: Request,
+    response: Response,
+    session_id: str = Depends(check_rate_limit),
     input_mode: str = Form(...),
     job_description: str = Form(...),
     resume_text: str | None = Form(default=None),
@@ -92,5 +118,10 @@ async def analyze_resume(
             result.context_note = f"{result.context_note} History was not saved."
         else:
             result.context_note = "History was not saved."
+
+    # Add rate limit headers to response
+    if hasattr(request.state, "rate_limit_headers"):
+        for header, value in request.state.rate_limit_headers.items():
+            response.headers[header] = value
 
     return result

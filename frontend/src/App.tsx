@@ -1,9 +1,19 @@
 import { FileText, History } from 'lucide-react';
 import { Link, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 
-import { HistoryPage } from './pages/HistoryPage';
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const ResultsPage = lazy(() => import('./pages/ResultsPage').then((m) => ({ default: m.ResultsPage })));
+
 import { HomePage } from './pages/HomePage';
-import { ResultsPage } from './pages/ResultsPage';
+
+function LoadingFallback() {
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-14">
+      <div className="h-40 animate-pulse rounded-lg bg-surface" />
+    </main>
+  );
+}
 
 export function App() {
   return (
@@ -28,8 +38,22 @@ export function App() {
 
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/results/:analysisId" element={<ResultsPage />} />
-        <Route path="/history" element={<HistoryPage />} />
+        <Route
+          path="/results/:analysisId"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <ResultsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <Suspense fallback={<LoadingFallback />}>
+              <HistoryPage />
+            </Suspense>
+          }
+        />
         <Route
           path="*"
           element={

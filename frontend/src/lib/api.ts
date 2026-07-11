@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 120000, // Increased to 120 seconds for slow AI analysis
+  timeout: 30000, // 30 second timeout for frontend requests
 });
 
 export async function analyzeResume(params: {
@@ -28,9 +28,9 @@ export async function analyzeResume(params: {
     form.append('resume_file', params.resumeFile);
   }
 
-  const response = await api.post<AnalysisResult>('/analyze', form, {
+const response = await api.post<AnalysisResult>('/analyze', form, {
     headers: { 'X-Session-ID': params.sessionId },
-    timeout: 120000, // Override timeout for this specific request
+    timeout: 30000, // Override timeout for this specific request
   });
   return response.data;
 }

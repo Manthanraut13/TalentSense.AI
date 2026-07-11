@@ -4,29 +4,143 @@ AI-assisted resume/job description match analyzer built from the project PRD, te
 
 ## Current Status
 
-Phase 3 backend storage/context is scaffolded:
-
+Phase 6 (History UX) complete:
 - `backend/` FastAPI app with health endpoint, CORS, session header validation, parser service, AI analysis route, and MongoDB-backed history routes.
-- `frontend/` Vite + React + TypeScript app with dark emerald/amber UI, session ID storage, input form, loading state, result page, and history page placeholder.
+- `frontend/` Vite + React + TypeScript app with dark emerald/amber UI, session ID storage, input form, loading state, result page, history sidebar/drawer/page with delete functionality.
 - LangChain + Groq analysis service with strict JSON/Pydantic parsing and one repair attempt.
-- `/analyze` now calls the AI analysis service and returns `503` if `GROQ_API_KEY` is not configured.
+- `/analyze` calls the AI analysis service and returns `503` if `GROQ_API_KEY` is not configured.
 - MongoDB history service using Motor for save/list/detail/delete operations.
 - Qdrant vector context service using `sentence-transformers/all-MiniLM-L6-v2` embeddings.
 - Storage is graceful: analysis still returns if MongoDB/Qdrant are not configured or fail.
 - Backend tests cover request validation, no-key failure, mocked AI success, storage save wiring, and history routes.
 - `IMPLEMENTATION_PLAN.md` contains the full phased build plan.
 
-Frontend history UI still needs Phase 6 polish, but the backend history API is now wired.
+Phase 7 (Deployment) in progress - preparing for Render (backend) and Vercel (frontend).
 
-## Backend Setup
+## Production Deployment
+
+### Backend Deployment (Render)
+
+For production deployment, use the following setup:
+
+```bash
+cd backend
+# Optional: Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# Install production dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+copy .env.example .env
+
+# Start server for production (use gunicorn for better production performance)
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
+```
+
+For Render deployment:
+
+1. **Dockerfile** (recommended):
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+```
+
+2. **Environment Variables** (required):
+- `GROQ_API_KEY` - Groq API key for AI analysis
+- `ALLOWED_ORIGINS` - Comma-separated list of allowed frontend origins (e.g., `https://your-app.vercel.app`)
+- `APP_ENV` - Set to "production"
+
+3. **Environment Variables** (optional):
+- `QDRANT_URL` and `QDRANT_API_KEY` - For vector search
+- `MONGODB_URI` - For history storage
+
+4. **Render Service Settings**:
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
+- Health Check Path: `/health`
+
+### Frontend Deployment (Vercel)
+
+For production deployment, use the following setup:
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Build for production
+VITE_API_BASE_URL=https://your-backend-domain.com npm run build
+
+# Preview locally (optional)
+npm run preview
+```
+
+For Vercel deployment:
+
+1. **Configure `frontend/vercel.json`** (already included):
+```json
+{
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/(.*)", "dest": "index.html" }
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "https://your-backend-domain.com"
+  }
+}
+```
+
+2. **Set `VITE_API_BASE_URL`** in Vercel project settings:
+- Go to Project Settings → Environment Variables
+- Add `VITE_API_BASE_URL` = `https://your-backend-domain.onrender.com`
+
+3. **Deploy**: Push to GitHub and import in Vercel - it will auto-detect Vite.
+
+### Health Check
+
+```bash
+# Backend health check
+curl http://localhost:8000/health
+
+# After deployment, replace with your actual domains
+curl https://your-backend-domain.onrender.com/health
+curl https://your-frontend-domain.vercel.app
+```
+
+## Development Setup
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+.venv\\Scripts\\activate
 pip install -r requirements.txt
+
+# Optional: install dev dependencies
+pip install -r requirements-dev.txt
+
 copy .env.example .env
+
+# Run with auto-reload for development
 uvicorn app.main:app --reload
+```
+
+```bash
+cd frontend
+npm install
+copy .env.example .env
+
+# Start development server
+npm run dev
 ```
 
 For backend tests:

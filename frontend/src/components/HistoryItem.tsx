@@ -47,7 +47,7 @@ export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }:
         isActive ? 'border-l-2 border-primary bg-primary-subtle' : ''
       }`}
     >
-      <Link to={`/results/${item.analysis_id}`} className="block">
+      <Link to={`/results/${item.analysis_id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-semibold text-textPrimary">{item.job_title}</h2>
@@ -69,13 +69,13 @@ export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }:
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-textSecondary transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
-              title="Delete analysis"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-textSecondary transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-base"
+              aria-label={`Delete analysis for ${item.job_title}`}
             >
               {deleting ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-400 border-t-transparent" aria-hidden="true" />
               ) : (
-                <Trash2 size={16} />
+                <Trash2 size={16} aria-hidden="true" />
               )}
             </button>
           </div>
