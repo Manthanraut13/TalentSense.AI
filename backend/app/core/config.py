@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Privacy: store resume snippet (first 500 chars) in MongoDB. Default false for privacy.
     store_resume_snippet: bool = False
     # Rate limiting
-    rate_limit_requests: int = 5
+    rate_limit_requests: int = 10
     rate_limit_window_seconds: int = 3600
 
     @cached_property

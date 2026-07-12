@@ -1,6 +1,5 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'resume_analyzer_session_id';
 
@@ -16,7 +15,7 @@ function getOrCreateSessionId() {
     return existing;
   }
 
-  const sessionId = uuidv4();
+  const sessionId = crypto.randomUUID();
   window.localStorage.setItem(STORAGE_KEY, sessionId);
   return sessionId;
 }

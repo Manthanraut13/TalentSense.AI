@@ -5,12 +5,14 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 
 from app.api.deps import get_session_id
+from app.core.config import settings
 from app.models.response import AnalysisResult
-from app.services.chain import AnalysisServiceUnavailable, analysis_chain
+from app.services.chain import AnalysisServiceUnavailable, analyze as analyze_fn
 from app.services.mongo_service import mongo_service
 from app.services.parser import parse_pdf_upload, validate_job_description, validate_resume_text
 from app.services.qdrant_service import qdrant_service
-from app.services.rate_limiter import rate_limiter
+from app.services.rate_limiter import check_limit, get_headers
+
 
 router = APIRouter(tags=["analysis"])
 logger = logging.getLogger(__name__)
@@ -18,26 +20,21 @@ logger = logging.getLogger(__name__)
 
 async def check_rate_limit(request: Request, session_id: str = Depends(get_session_id)) -> str:
     """Rate limit by session ID."""
-    allowed, remaining, retry_after = rate_limiter.check_limit(session_id)
+    allowed, remaining, retry_after = check_limit(session_id)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Rate limit exceeded. Try again after {retry_after} seconds.",
             headers={
-                "X-RateLimit-Limit": str(rate_limiter._max_requests),
+                "X-RateLimit-Limit": str(settings.rate_limit_requests),
                 "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Window": str(rate_limiter._window_seconds),
+                "X-RateLimit-Window": str(settings.rate_limit_window_seconds),
                 "Retry-After": str(retry_after),
             },
         )
     # Add rate limit headers to response
-    request.state.rate_limit_headers = {
-        "X-RateLimit-Limit": str(rate_limiter._max_requests),
-        "X-RateLimit-Remaining": str(remaining),
-        "X-RateLimit-Window": str(rate_limiter._window_seconds),
-    }
+    request.state.rate_limit_headers = get_headers(session_id, True, remaining, 0)
     return session_id
-
 
 @router.post("/analyze", response_model=AnalysisResult)
 async def analyze_resume(
@@ -76,7 +73,7 @@ async def analyze_resume(
             session_id=session_id,
             job_description=validated_job_description,
         )
-        ai_result = await analysis_chain.analyze(
+        ai_result = await analyze_fn(
             parsed_resume=parsed_resume,
             job_description=validated_job_description,
             past_context=past_context,

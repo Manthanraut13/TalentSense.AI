@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { HistoryItem as HistoryItemType } from '../types';
 import { deleteAnalysis } from '../lib/api';
 import { formatDate } from '../lib/format';
@@ -15,8 +16,21 @@ interface HistoryItemProps {
 
 export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }: HistoryItemProps) {
   const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
-  const scoreColor = item.scores.overall >= 60 ? 'text-green-400' : 'text-amber-400';
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAnalysis(sessionId, item.analysis_id),
+    onSuccess: () => {
+      onDelete(item.analysis_id);
+      queryClient.invalidateQueries({ queryKey: ['history', sessionId] });
+    },
+    onError: () => {
+      alert('Failed to delete analysis. Please try again.');
+    },
+    onSettled: () => {
+      setDeleting(false);
+    },
+  });
 
   async function handleDelete(event: React.MouseEvent) {
     event.preventDefault();
@@ -29,16 +43,10 @@ export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }:
     }
 
     setDeleting(true);
-    try {
-      await deleteAnalysis(sessionId, item.analysis_id);
-      onDelete(item.analysis_id);
-    } catch (error) {
-      console.error('Failed to delete analysis:', error);
-      alert('Failed to delete analysis. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
+    deleteMutation.mutate();
   }
+
+  const scoreColor = item.scores.overall >= 60 ? 'text-green-400' : 'text-amber-400';
 
   return (
     <div

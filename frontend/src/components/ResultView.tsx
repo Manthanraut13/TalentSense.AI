@@ -1,10 +1,52 @@
 import { CheckCircle2, Key, Lightbulb, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
 
 import type { AnalysisResult } from '../types';
 import { formatDate, scoreColorClass, scoreLabel } from '../lib/format';
+
+function CircularScore({ score }: { score: number }) {
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - score / 100);
+  const color = score >= 60 ? '#10B981' : '#F59E0B';
+
+  return (
+    <svg width="144" height="144" viewBox="0 0 144 144" role="img" aria-label={`${score} percent match`}>
+      <circle
+        cx="72"
+        cy="72"
+        r={radius}
+        fill="none"
+        stroke="#2E2E2E"
+        strokeWidth="12"
+      />
+      <circle
+        cx="72"
+        cy="72"
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth="12"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform="rotate(-90 72 72)"
+        style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+      />
+      <text
+        x="72"
+        y="76"
+        textAnchor="middle"
+        fill="#F5F5F5"
+        fontSize="24"
+        fontWeight="bold"
+        fontFamily="monospace"
+      >
+        {score}%
+      </text>
+    </svg>
+  );
+}
 
 export function ResultView({ result }: { result: AnalysisResult }) {
   const score = result.scores.overall;
@@ -19,16 +61,8 @@ export function ResultView({ result }: { result: AnalysisResult }) {
       <section aria-labelledby="score-heading" className="grid gap-4 lg:grid-cols-[220px_1fr]">
         <div className="rounded-lg border border-line bg-surface p-5">
           <h2 id="score-heading" className="sr-only">Overall Match Score</h2>
-          <div className="mx-auto h-36 w-36" role="img" aria-label={`${score} percent match`}>
-            <CircularProgressbar
-              value={score}
-              text={`${score}%`}
-              styles={buildStyles({
-                pathColor: score >= 60 ? '#10B981' : '#F59E0B',
-                textColor: '#F5F5F5',
-                trailColor: '#2E2E2E',
-              })}
-            />
+          <div className="mx-auto h-36 w-36">
+            <CircularScore score={score} />
           </div>
           <p className={`mt-4 text-center font-semibold ${scoreColorClass(score)}`}>
             {scoreLabel(score)}

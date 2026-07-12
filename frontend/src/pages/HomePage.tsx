@@ -1,10 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle, Menu, X } from 'lucide-react';
 
-import { StepProgress } from '../components/StepProgress';
 import { HistorySidebar } from '../components/HistorySidebar';
-import { HistoryDrawer } from '../components/HistoryDrawer';
 import { analyzeResume } from '../lib/api';
 import { useSession } from '../context/SessionContext';
 
@@ -12,6 +11,7 @@ type InputMode = 'text' | 'pdf';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { sessionId } = useSession();
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [resumeText, setResumeText] = useState('');
@@ -21,9 +21,32 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [showColdStartWarning, setShowColdStartWarning] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const coldStartTimerRef = useRef<number | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+
+  const analyzeMutation = useMutation({
+    mutationFn: analyzeResume,
+    onSuccess: (result) => {
+      window.sessionStorage.setItem(`analysis:${result.analysis_id}`, JSON.stringify(result));
+      queryClient.invalidateQueries({ queryKey: ['history', sessionId] });
+      navigate(`/results/${result.analysis_id}`);
+    },
+    onError: (caught: unknown) => {
+      const message =
+        typeof caught === 'object' &&
+        caught !== null &&
+        'response' in caught &&
+        typeof caught.response === 'object' &&
+        caught.response !== null &&
+        'data' in caught.response
+          ? String((caught.response as { data?: { detail?: string } }).data?.detail ?? 'Analysis failed.')
+          : 'Analysis failed. Please retry.';
+      setError(message);
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
+    },
+  });
 
   useEffect(() => {
     if (!isSubmitting) return;
@@ -85,46 +108,46 @@ export function HomePage() {
     setIsSubmitting(true);
     setActiveStep(0);
 
-    try {
-      const result = await analyzeResume({
-        sessionId,
-        inputMode,
-        resumeText,
-        resumeFile: resumeFile ?? undefined,
-        jobDescription,
-      });
-      window.sessionStorage.setItem(`analysis:${result.analysis_id}`, JSON.stringify(result));
-      navigate(`/results/${result.analysis_id}`);
-    } catch (caught) {
-      const message =
-        typeof caught === 'object' &&
-        caught !== null &&
-        'response' in caught &&
-        typeof caught.response === 'object' &&
-        caught.response !== null &&
-        'data' in caught.response
-          ? String((caught.response as { data?: { detail?: string } }).data?.detail ?? 'Analysis failed.')
-          : 'Analysis failed. Please retry.';
-      setError(message);
-    } finally {
-      setIsSubmitting(false);
-    }
+    analyzeMutation.mutate({
+      sessionId,
+      inputMode,
+      resumeText,
+      resumeFile: resumeFile ?? undefined,
+      jobDescription,
+    });
   }
 
-  if (isSubmitting) {
+if (isSubmitting) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-14">
         {showColdStartWarning && (
-          <div className="mb-6 rounded-lg border border-secondary/30 bg-secondary/10 p-4 text-sm text-secondary flex items-center gap-2">
+          <div className="mb-6 rounded-lg border border-secondary/30 bg-secondary/10 p-4 text-sm text-secondary flex items-center gap-2" role="status" aria-live="polite">
             <AlertTriangle size={18} />
             <span>Server is warming up (free tier cold start) — this may take ~30 seconds</span>
           </div>
         )}
-        <StepProgress activeStep={activeStep} />
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="h-28 animate-pulse rounded-lg bg-surface" />
-          <div className="h-28 animate-pulse rounded-lg bg-surface" />
-          <div className="h-28 animate-pulse rounded-lg bg-surface" />
+        <div className="mt-6 space-y-3">
+          {[
+            'Parsing your resume',
+            'Analyzing job requirements',
+            'Calculating match score',
+            'Generating recommendations',
+            'Almost done',
+          ].map((step, index) => (
+            <div
+              key={step}
+              className={`flex items-center gap-3 text-sm ${
+                index < activeStep ? 'text-textPrimary' : index === activeStep ? 'text-secondary animate-pulse' : 'text-textMuted'
+              }`}
+            >
+              {index < activeStep ? (
+                <svg className="text-primary" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>
+              ) : (
+                <svg className={index === activeStep ? 'animate-pulse text-secondary' : ''} width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/></svg>
+              )}
+              {step}
+            </div>
+          ))}
         </div>
       </main>
     );
@@ -132,28 +155,15 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-base">
-      <HistoryDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <main className="mx-auto max-w-7xl px-4 py-8 lg:grid lg:grid-cols-[288px_1fr] lg:gap-6">
         <HistorySidebar />
 
         <div className="lg:col-span-1">
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-6 lg:hidden">
-              <h1 className="text-3xl font-bold">Analyze your resume against any job</h1>
-              <button
-                onClick={() => setDrawerOpen(true)}
-                className="p-2 rounded-md border border-line bg-surface text-textSecondary hover:bg-elevated transition"
-                aria-label="Open history drawer"
-              >
-                <Menu size={24} />
-              </button>
-            </div>
-            <div className="hidden lg:block">
-              <h1 className="text-3xl font-bold">Analyze your resume against any job</h1>
-              <p className="mt-2 max-w-2xl text-sm text-textSecondary">
-                Upload or paste a resume, paste a job description, and get a structured match report.
-              </p>
-            </div>
+            <h1 className="text-3xl font-bold">Analyze your resume against any job</h1>
+            <p className="mt-2 max-w-2xl text-sm text-textSecondary">
+              Upload or paste a resume, paste a job description, and get a structured match report.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
