@@ -1,11 +1,17 @@
-import { FileText, History } from 'lucide-react';
-import { Link, Route, Routes } from 'react-router-dom';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import { useEffect } from 'react';
+import { Route, Routes } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
+
+import { setTokenGetter } from './lib/api';
+import ProtectedRoute from './components/ProtectedRoute';
+import { HomePage } from './pages/HomePage';
+import UsageBadge from './components/UsageBadge';
 
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
 const ResultsPage = lazy(() => import('./pages/ResultsPage').then((m) => ({ default: m.ResultsPage })));
-
-import { HomePage } from './pages/HomePage';
+const SignInPage = lazy(() => import('./pages/SignInPage'));
+const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 
 function LoadingFallback() {
   return (
@@ -16,44 +22,60 @@ function LoadingFallback() {
 }
 
 export function App() {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    setTokenGetter(getToken);
+  }, [getToken]);
+
   return (
     <div className="min-h-screen bg-base text-textPrimary">
       <header className="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur">
         <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+          <a href="/" className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-subtle text-primary">
-              <FileText size={18} />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
             </span>
             Resume Analyzer
-          </Link>
-          <Link
-            to="/history"
-            className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm text-textSecondary transition hover:bg-elevated hover:text-textPrimary"
-          >
-            <History size={16} />
-            History
-          </Link>
+          </a>
+          <AuthNav />
         </nav>
       </header>
 
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        {/* Public routes */}
+        <Route path="/sign-in/*" element={<SignInPage />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
+
+        {/* Protected routes */}
+        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
         <Route
           path="/results/:analysisId"
           element={
-            <Suspense fallback={<LoadingFallback />}>
-              <ResultsPage />
-            </Suspense>
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <ResultsPage />
+              </Suspense>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/history"
           element={
-            <Suspense fallback={<LoadingFallback />}>
-              <HistoryPage />
-            </Suspense>
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <HistoryPage />
+              </Suspense>
+            </ProtectedRoute>
           }
         />
+
         <Route
           path="*"
           element={
@@ -64,6 +86,39 @@ export function App() {
           }
         />
       </Routes>
+    </div>
+  );
+}
+
+function AuthNav() {
+  const { user } = useUser();
+  const { signOut } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="flex items-center gap-4">
+        <a href="/sign-in" className="text-sm text-textSecondary hover:text-textPrimary">
+          Sign in
+        </a>
+        <a href="/sign-up" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover">
+          Sign up
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <UsageBadge />
+      <span className="text-sm text-textSecondary hidden md:block">
+        {user.firstName || user.emailAddresses[0]?.emailAddress}
+      </span>
+      <button
+        onClick={() => signOut()}
+        className="rounded-md border border-line px-3 py-2 text-sm text-textSecondary hover:bg-elevated hover:text-textPrimary transition"
+      >
+        Sign out
+      </button>
     </div>
   );
 }

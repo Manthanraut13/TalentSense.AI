@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { History } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 
 import { HistoryItem } from './HistoryItem';
-import { useSession } from '../context/SessionContext';
 import { useQuery } from '@tanstack/react-query';
 import { fetchHistory } from '../lib/api';
 import type { HistoryListResponse } from '../types';
@@ -13,13 +13,14 @@ interface HistorySidebarProps {
 }
 
 export function HistorySidebar({ activeAnalysisId }: HistorySidebarProps) {
-  const { sessionId } = useSession();
+  const { userId, isLoaded } = useAuth();
   const location = useLocation();
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const { data: history, isLoading, error } = useQuery({
-    queryKey: ['history', sessionId],
-    queryFn: () => fetchHistory(sessionId),
+    queryKey: ['history', userId],
+    queryFn: () => fetchHistory(),
+    enabled: isLoaded && !!userId,
   });
 
   // Sync scroll position with active item
@@ -31,6 +32,22 @@ export function HistorySidebar({ activeAnalysisId }: HistorySidebarProps) {
       }
     }
   }, [activeAnalysisId]);
+
+  if (!isLoaded || !userId) {
+    return (
+      <aside className="hidden lg:block w-72 flex-shrink-0 border-r border-line bg-surface flex flex-col">
+        <div className="p-4 border-b border-line">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <History size={20} className="text-primary" />
+            Past Analyses
+          </h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="text-center text-textSecondary text-sm">Loading...</div>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="hidden lg:block w-72 flex-shrink-0 border-r border-line bg-surface flex flex-col">
@@ -68,7 +85,6 @@ export function HistorySidebar({ activeAnalysisId }: HistorySidebarProps) {
                 key={item.analysis_id}
                 item={item}
                 onDelete={() => {}}
-                sessionId={sessionId}
                 isActive={location.pathname === `/results/${item.analysis_id}`}
                 analysisId={item.analysis_id}
               />

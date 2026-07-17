@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import type { AnalysisResult, HistoryListResponse } from '../types';
+import type { AnalysisResult, HistoryListResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -9,8 +9,24 @@ export const api = axios.create({
   timeout: 180000, // 3 minutes for slow AI analysis
 });
 
+// This function will be set by the App component
+let getTokenFn: (() => Promise<string | null>) | null = null;
+
+export function setTokenGetter(fn: () => Promise<string | null>) {
+  getTokenFn = fn;
+}
+
+api.interceptors.request.use(async (config) => {
+  if (getTokenFn) {
+    const token = await getTokenFn();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 export async function analyzeResume(params: {
-  sessionId: string;
   inputMode: 'text' | 'pdf';
   resumeText?: string;
   resumeFile?: File;
@@ -29,29 +45,27 @@ export async function analyzeResume(params: {
   }
 
   const response = await api.post<AnalysisResult>('/analyze', form, {
-    headers: { 'X-Session-ID': params.sessionId },
     timeout: 180000,
   });
   return response.data;
 }
 
-export async function fetchHistory(sessionId: string) {
-  const response = await api.get<HistoryListResponse>('/history', {
-    headers: { 'X-Session-ID': sessionId },
-  });
+export async function fetchHistory() {
+  const response = await api.get<HistoryListResponse>('/history');
   return response.data;
 }
 
-export async function fetchAnalysis(sessionId: string, analysisId: string) {
-  const response = await api.get<AnalysisResult>(`/history/${analysisId}`, {
-    headers: { 'X-Session-ID': sessionId },
-  });
+export async function fetchAnalysis(analysisId: string) {
+  const response = await api.get<AnalysisResult>(`/history/${analysisId}`);
   return response.data;
 }
 
-export async function deleteAnalysis(sessionId: string, analysisId: string) {
-  const response = await api.delete(`/history/${analysisId}`, {
-    headers: { 'X-Session-ID': sessionId },
-  });
+export async function deleteAnalysis(analysisId: string) {
+  const response = await api.delete(`/history/${analysisId}`);
+  return response.data;
+}
+
+export async function fetchUsage() {
+  const response = await api.get<UsageStatus>('/usage');
   return response.data;
 }

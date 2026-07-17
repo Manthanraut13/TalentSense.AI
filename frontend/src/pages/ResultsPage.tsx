@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 
 import { ResultView } from '../components/ResultView';
 import { fetchAnalysis } from '../lib/api';
-import { useSession } from '../context/SessionContext';
 import type { AnalysisResult } from '../types';
 
 export function ResultsPage() {
   const { analysisId } = useParams();
-  const { sessionId } = useSession();
+  const { userId, isLoaded } = useAuth();
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!analysisId) return;
+    if (!isLoaded || !analysisId) return;
 
     const cached = window.sessionStorage.getItem(`analysis:${analysisId}`);
     if (cached) {
@@ -21,10 +21,10 @@ export function ResultsPage() {
       return;
     }
 
-    fetchAnalysis(sessionId, analysisId)
+    fetchAnalysis(analysisId)
       .then(setResult)
       .catch(() => setError('Analysis result was not found.'));
-  }, [analysisId, sessionId]);
+  }, [analysisId, isLoaded]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">

@@ -18,8 +18,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
-        allow_headers=["Content-Type", "X-Session-ID"],
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Session-ID", "Authorization"],
     )
 
     app.include_router(analysis.router)

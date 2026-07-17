@@ -9,3 +9,8 @@ langchain-groq
 motor
 qdrant-client
 sentence-transformers
+clerk-backend-api
+python-jose[cryptography]
+httpx
+slowapi
+limits

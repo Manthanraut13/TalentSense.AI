@@ -30,4 +30,11 @@ type AnalysisResult = {
   context_note?: string | null;
 };
 
-export type { Scores, AnalysisResult, HistoryItem, HistoryListResponse };
+type UsageStatus = {
+  used: number;
+  limit: number;
+  remaining: number;
+  is_pro: boolean;
+};
+
+export type { Scores, AnalysisResult, HistoryItem, HistoryListResponse, UsageStatus };

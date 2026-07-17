@@ -9,20 +9,19 @@ import { formatDate } from '../lib/format';
 interface HistoryItemProps {
   item: HistoryItemType;
   onDelete: (analysisId: string) => void;
-  sessionId: string;
   isActive?: boolean;
   analysisId?: string;
 }
 
-export function HistoryItem({ item, onDelete, sessionId, isActive, analysisId }: HistoryItemProps) {
+export function HistoryItem({ item, onDelete, isActive, analysisId }: HistoryItemProps) {
   const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteAnalysis(sessionId, item.analysis_id),
+    mutationFn: () => deleteAnalysis(item.analysis_id),
     onSuccess: () => {
       onDelete(item.analysis_id);
-      queryClient.invalidateQueries({ queryKey: ['history', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['history'] });
     },
     onError: () => {
       alert('Failed to delete analysis. Please try again.');

@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_requests: int = 10
     rate_limit_window_seconds: int = 3600
+    # Clerk auth
+    clerk_secret_key: str | None = None
+    clerk_publishable_key: str | None = None
 
     @cached_property
     def allowed_origins_list(self) -> list[str]:

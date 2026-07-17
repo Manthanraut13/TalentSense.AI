@@ -1,18 +1,21 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle, Menu, X } from 'lucide-react';
+import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle } from 'lucide-react';
 
 import { HistorySidebar } from '../components/HistorySidebar';
 import { analyzeResume } from '../lib/api';
-import { useSession } from '../context/SessionContext';
+import { useAuth } from '@clerk/clerk-react';
+import { useUsage } from '../hooks/useUsage';
 
 type InputMode = 'text' | 'pdf';
 
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { sessionId } = useSession();
+  const { isSignedIn, userId } = useAuth();
+  const { data: usage } = useUsage();
+  const isAtLimit = usage && !usage.is_pro && usage.remaining === 0;
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -28,20 +31,29 @@ export function HomePage() {
     mutationFn: analyzeResume,
     onSuccess: (result) => {
       window.sessionStorage.setItem(`analysis:${result.analysis_id}`, JSON.stringify(result));
-      queryClient.invalidateQueries({ queryKey: ['history', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['history', userId] });
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
       navigate(`/results/${result.analysis_id}`);
     },
     onError: (caught: unknown) => {
-      const message =
+      const detail = 
         typeof caught === 'object' &&
         caught !== null &&
         'response' in caught &&
         typeof caught.response === 'object' &&
         caught.response !== null &&
         'data' in caught.response
-          ? String((caught.response as { data?: { detail?: string } }).data?.detail ?? 'Analysis failed.')
-          : 'Analysis failed. Please retry.';
-      setError(message);
+          ? (caught.response as { data?: { detail?: string; message?: string } }).data
+          : null;
+      
+      // Handle rate limit error (429)
+      if (detail && typeof detail === 'object' && 'message' in detail && detail.message) {
+        setError(detail.message);
+      } else if (detail && typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Analysis failed. Please retry.');
+      }
     },
     onSettled: () => {
       setIsSubmitting(false);
@@ -109,7 +121,6 @@ export function HomePage() {
     setActiveStep(0);
 
     analyzeMutation.mutate({
-      sessionId,
       inputMode,
       resumeText,
       resumeFile: resumeFile ?? undefined,
@@ -117,7 +128,20 @@ export function HomePage() {
     });
   }
 
-if (isSubmitting) {
+  if (!isSignedIn) {
+    return (
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">Please sign in to analyze resumes</h1>
+          <a href="/sign-in" className="text-primary hover: items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSubmitting) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-14">
         {showColdStartWarning && (
@@ -255,12 +279,19 @@ if (isSubmitting) {
               </div>
             ) : null}
 
+            {isAtLimit && !error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                Daily limit reached. <a href="/pricing" className="text-primary underline">Upgrade to Pro</a> for unlimited analyses.
+              </div>
+            )}
+
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
+              disabled={isAtLimit || isSubmitting}
+              className={`inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${isAtLimit || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Zap size={18} aria-hidden="true" />
-              Analyze Now
+              {isAtLimit ? 'Daily Limit Reached' : isSubmitting ? 'Analyzing...' : 'Analyze Now'}
             </button>
           </form>
         </div>

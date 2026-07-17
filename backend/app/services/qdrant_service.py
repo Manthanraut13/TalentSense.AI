@@ -79,20 +79,20 @@ class QdrantService:
                     ),
                 )
 
-            # Ensure payload index on session_id exists for filtering
+            # Ensure payload index on user_id exists for filtering
             try:
                 client.create_payload_index(
                     collection_name=settings.qdrant_collection,
-                    field_name="session_id",
+                    field_name="user_id",
                     field_schema=PayloadSchemaType.KEYWORD,
                 )
             except Exception as e:
-                logger.warning("Failed to create payload index on session_id: %s", e)
+                logger.warning("Failed to create payload index on user_id: %s", e)
 
         await asyncio.to_thread(run)
         self._collection_ready = True
 
-    async def retrieve_context(self, *, session_id: str, job_description: str) -> str:
+    async def retrieve_context(self, *, user_id: str, job_description: str) -> str:
         client = self._get_client()
         if client is None:
             return DEFAULT_CONTEXT
@@ -110,8 +110,8 @@ class QdrantService:
                     query_filter=Filter(
                         must=[
                             FieldCondition(
-                                key="session_id",
-                                match=MatchValue(value=session_id),
+                                key="user_id",
+                                match=MatchValue(value=user_id),
                             )
                         ]
                     ),
@@ -152,7 +152,7 @@ class QdrantService:
     async def upsert_analysis(
         self,
         *,
-        session_id: str,
+        user_id: str,
         result: AnalysisResult,
         parsed_resume: ParsedResume,
     ) -> str | None:
@@ -176,7 +176,7 @@ class QdrantService:
                             vector=vector,
                             payload={
                                 "analysis_id": result.analysis_id,
-                                "session_id": session_id,
+                                "user_id": user_id,
                                 "job_title": result.job_title,
                                 "timestamp": result.timestamp.isoformat(),
                                 "match_score": result.scores.overall,

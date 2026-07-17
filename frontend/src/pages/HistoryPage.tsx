@@ -1,20 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 
 import { HistoryItem } from '../components/HistoryItem';
-import { useSession } from '../context/SessionContext';
 import { fetchHistory } from '../lib/api';
 import { formatDate, scoreColorClass } from '../lib/format';
 import type { HistoryListResponse, HistoryItem as HistoryItemType } from '../types';
 
 export function HistoryPage() {
-  const { sessionId } = useSession();
+  const { userId, isLoaded } = useAuth();
   const [history, setHistory] = useState<HistoryListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchHistory(sessionId).then(setHistory).catch(() => setError('Could not load history.'));
-  }, [sessionId]);
+    if (!isLoaded || !userId) return;
+
+    fetchHistory()
+      .then(setHistory)
+      .catch(() => setError('Could not load history.'));
+  }, [userId, isLoaded]);
 
   const handleDelete = (analysisId: string) => {
     if (history) {
@@ -25,6 +29,14 @@ export function HistoryPage() {
       });
     }
   };
+
+  if (!isLoaded) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <div className="text-textSecondary">Loading...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -52,7 +64,6 @@ export function HistoryPage() {
             key={item.analysis_id}
             item={item}
             onDelete={handleDelete}
-            sessionId={sessionId}
           />
         ))}
       </div>

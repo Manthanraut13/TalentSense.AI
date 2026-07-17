@@ -60,14 +60,23 @@ class MongoService:
         if collection is None:
             return
 
-        await collection.create_index([("session_id", 1), ("timestamp", -1)])
+        await collection.create_index([("user_id", 1), ("timestamp", -1)])
         await collection.create_index("analysis_id", unique=True)
+
+        # Rate limit indexes - expire documents after 2 days automatically
+        rate_limits_collection = collection.database.rate_limits
+        await rate_limits_collection.create_index("user_id")
+        await rate_limits_collection.create_index(
+            "date",
+            expireAfterSeconds=172800,  # Auto-delete docs after 2 days
+        )
+
         self._indexes_ready = True
 
     async def save_analysis(
         self,
         *,
-        session_id: str,
+        user_id: str,
         result: AnalysisResult,
         resume_text: str,
         qdrant_vector_id: str | None = None,
@@ -80,7 +89,7 @@ class MongoService:
         document = result.model_dump(mode="json")
         document.update(
             {
-                "session_id": session_id,
+                "user_id": user_id,
                 "qdrant_vector_id": qdrant_vector_id,
             }
         )
@@ -93,7 +102,7 @@ class MongoService:
     async def list_history(
         self,
         *,
-        session_id: str,
+        user_id: str,
         limit: int = 10,
         skip: int = 0,
     ) -> HistoryListResponse:
@@ -101,7 +110,7 @@ class MongoService:
         if collection is None:
             return HistoryListResponse(analyses=[], total=0)
 
-        query = {"session_id": session_id}
+        query = {"user_id": user_id}
         total = await collection.count_documents(query)
         cursor = (
             collection.find(query, {"_id": 0})
@@ -120,33 +129,33 @@ class MongoService:
         ]
         return HistoryListResponse(analyses=analyses, total=total)
 
-    async def get_analysis(self, *, session_id: str, analysis_id: str) -> AnalysisResult | None:
+    async def get_analysis(self, *, user_id: str, analysis_id: str) -> AnalysisResult | None:
         collection = self._get_collection()
         if collection is None:
             return None
 
         document = await collection.find_one(
-            {"session_id": session_id, "analysis_id": analysis_id},
-            {"_id": 0, "session_id": 0, "resume_snippet": 0, "qdrant_vector_id": 0},
+            {"user_id": user_id, "analysis_id": analysis_id},
+            {"_id": 0, "user_id": 0, "resume_snippet": 0, "qdrant_vector_id": 0},
         )
         if document is None:
             return None
 
         return AnalysisResult.model_validate(document)
 
-    async def delete_analysis(self, *, session_id: str, analysis_id: str) -> DeleteAnalysisResult:
+    async def delete_analysis(self, *, user_id: str, analysis_id: str) -> DeleteAnalysisResult:
         collection = self._get_collection()
         if collection is None:
             return DeleteAnalysisResult(deleted=False)
 
         document = await collection.find_one(
-            {"session_id": session_id, "analysis_id": analysis_id},
+            {"user_id": user_id, "analysis_id": analysis_id},
             {"qdrant_vector_id": 1},
         )
         if document is None:
             return DeleteAnalysisResult(deleted=False)
 
-        result = await collection.delete_one({"session_id": session_id, "analysis_id": analysis_id})
+        result = await collection.delete_one({"user_id": user_id, "analysis_id": analysis_id})
         return DeleteAnalysisResult(
             deleted=result.deleted_count == 1,
             qdrant_vector_id=document.get("qdrant_vector_id"),
