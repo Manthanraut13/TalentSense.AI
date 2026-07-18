@@ -1,47 +1,146 @@
 # Resume & Job Match Analyzer
 
-AI-assisted resume/job description match analyzer built from the project PRD, tech stack, app flow, and design document.
+AI-assisted resume/job description match analyzer with authentication, rate limiting, and security hardening.
 
 ## Current Status
 
-Phase 6 (History UX) complete:
-- `backend/` FastAPI app with health endpoint, CORS, session header validation, parser service, AI analysis route, and MongoDB-backed history routes.
-- `frontend/` Vite + React + TypeScript app with dark emerald/amber UI, session ID storage, input form, loading state, result page, history sidebar/drawer/page with delete functionality.
-- LangChain + Groq analysis service with strict JSON/Pydantic parsing and one repair attempt.
-- `/analyze` calls the AI analysis service and returns `503` if `GROQ_API_KEY` is not configured.
-- MongoDB history service using Motor for save/list/detail/delete operations.
-- Qdrant vector context service using `sentence-transformers/all-MiniLM-L6-v2` embeddings.
-- Storage is graceful: analysis still returns if MongoDB/Qdrant are not configured or fail.
-- Backend tests cover request validation, no-key failure, mocked AI success, storage save wiring, and history routes.
-- `IMPLEMENTATION_PLAN.md` contains the full phased build plan.
+**Phase 3 (Security Hardening) complete** — all ship-blocker phases done:
 
-Phase 7 (Deployment) in progress - preparing for Render (backend) and Vercel (frontend).
+- **Phase 1 — Authentication (Clerk)**: Anonymous UUID sessions replaced with real user accounts (email/password + Google OAuth). History tied to user, not browser. JWT verified on every request.
+- **Phase 2 — Rate Limiting**: Free users limited to 5 analyses/day (resets midnight UTC). Usage tracked in MongoDB with TTL cleanup. Frontend shows remaining analyses in navbar.
+- **Phase 3 — Input Sanitization & Security**: Prompt injection detection, PDF validation via MIME type (not extension), character limits, security headers, pre-commit secret scanning.
 
-## Production Deployment
+**Backend**: FastAPI with LangChain/Groq analysis, Motor MongoDB, Qdrant vector search, Clerk JWT auth, SlowAPI rate limiting.
 
-### Backend Deployment (Render)
+**Frontend**: Vite + React + TypeScript, Clerk auth, React Query, dark emerald/amber UI.
 
-For production deployment, use the following setup:
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (Vercel)                        │
+│  React + Clerk Auth → React Query → /analyze, /history, /usage  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ HTTPS + Authorization: Bearer <jwt>
+┌──────────────────────────▼──────────────────────────────────────┐
+│                        Backend (Render)                         │
+│  FastAPI + Clerk JWT verification → Rate Limit → Sanitizer     │
+│  → LangChain/Groq Analysis → MongoDB + Qdrant                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Quick Start
+
+### Backend
 
 ```bash
 cd backend
-# Optional: Create virtual environment
 python -m venv .venv
 .venv\Scripts\activate
-
-# Install production dependencies
 pip install -r requirements.txt
-
-# Configure environment variables
 copy .env.example .env
-
-# Start server for production (use gunicorn for better production performance)
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
+# Edit .env with your keys
+uvicorn app.main:app --reload
 ```
 
-For Render deployment:
+### Frontend
 
-1. **Dockerfile** (recommended):
+```bash
+cd frontend
+npm install
+copy .env.example .env
+# Edit .env with VITE_CLERK_PUBLISHABLE_KEY and VITE_API_BASE_URL
+npm run dev
+```
+
+Open `http://localhost:5173`
+
+---
+
+## Environment Variables
+
+### Backend (`.env`)
+
+```env
+# App
+APP_ENV=development
+ALLOWED_ORIGINS=http://localhost:5173
+
+# Auth (Clerk)
+CLERK_SECRET_KEY=sk_test_...
+CLERK_PUBLISHABLE_KEY=pk_test_...
+
+# AI
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_TEMPERATURE=0.3
+GROQ_MAX_TOKENS=2048
+
+# Vector DB (Qdrant)
+QDRANT_URL=https://xxx.qdrant.io
+QDRANT_API_KEY=...
+QDRANT_COLLECTION=resume_analyses
+
+# Document DB (MongoDB)
+MONGODB_URI=mongodb+srv://...
+MONGODB_DATABASE=resume_analyzer
+MONGODB_COLLECTION=analyses
+
+# Embeddings
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_DIMENSIONS=384
+
+# Rate Limiting
+RATE_LIMIT_REQUESTS=5
+RATE_LIMIT_WINDOW_SECONDS=86400
+```
+
+### Frontend (`.env`)
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+```
+
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Authentication** | Clerk email/password + Google OAuth; JWT on every request |
+| **Rate Limiting** | 5 analyses/day for free users; headers show remaining |
+| **Prompt Injection Defense** | 16 regex patterns block common LLM attacks |
+| **PDF Validation** | MIME type check via libmagic, 5MB limit, PDF header check |
+| **Input Limits** | Resume 8K chars, Job Description 4K chars |
+| **Security Headers** | X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, etc. |
+| **Vector Context** | Qdrant stores past analyses for RAG on future queries |
+| **History** | Full CRUD per user, MongoDB persistence |
+| **Pre-commit** | Whitespace, EOF, merge-conflict, YAML checks |
+
+---
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/analyze` | Bearer | Run analysis (rate limited, sanitized) |
+| GET | `/usage` | Bearer | Current daily usage stats |
+| GET | `/history` | Bearer | List past analyses |
+| GET | `/history/{id}` | Bearer | Get single analysis |
+| DELETE | `/history/{id}` | Bearer | Delete analysis |
+| GET | `/health` | — | Health check |
+
+---
+
+## Production Deployment
+
+### Backend (Render)
+
 ```dockerfile
 FROM python:3.11-slim
 WORKDIR /app
@@ -51,195 +150,119 @@ COPY . .
 CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
 ```
 
-2. **Environment Variables** (required):
-- `GROQ_API_KEY` - Groq API key for AI analysis
-- `ALLOWED_ORIGINS` - Comma-separated list of allowed frontend origins (e.g., `https://your-app.vercel.app`)
-- `APP_ENV` - Set to "production"
+**Render Settings:**
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
+- Health: `/health`
+- Env: Add all backend env vars + `libmagic1` via build command:
+  ```
+  apt-get update && apt-get install -y libmagic1 && pip install -r requirements.txt
+  ```
 
-3. **Environment Variables** (optional):
-- `QDRANT_URL` and `QDRANT_API_KEY` - For vector search
-- `MONGODB_URI` - For history storage
-
-4. **Render Service Settings**:
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
-- Health Check Path: `/health`
-
-### Frontend Deployment (Vercel)
-
-For production deployment, use the following setup:
+### Frontend (Vercel)
 
 ```bash
 cd frontend
-
-# Install dependencies
-npm install
-
-# Build for production
-VITE_API_BASE_URL=https://your-backend-domain.com npm run build
-
-# Preview locally (optional)
-npm run preview
+VITE_API_BASE_URL=https://your-backend.onrender.com npm run build
 ```
 
-For Vercel deployment:
-
-1. **Configure `frontend/vercel.json`** (already included):
+**vercel.json** (included):
 ```json
 {
   "version": 2,
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
-    { "src": "/(.*)", "dest": "index.html" }
-  ],
-  "env": {
-    "VITE_API_BASE_URL": "https://your-backend-domain.com"
-  }
+  "routes": [{ "src": "/(.*)", "dest": "index.html" }]
 }
 ```
 
-2. **Set `VITE_API_BASE_URL`** in Vercel project settings:
-- Go to Project Settings → Environment Variables
-- Add `VITE_API_BASE_URL` = `https://your-backend-domain.onrender.com`
+Set `VITE_API_BASE_URL` in Vercel project settings.
 
-3. **Deploy**: Push to GitHub and import in Vercel - it will auto-detect Vite.
+---
 
-### Health Check
+## Clerk Setup
 
-```bash
-# Backend health check
-curl http://localhost:8000/health
+1. Create app at [dashboard.clerk.com](https://dashboard.clerk.com)
+2. Enable **Email + Password** and **Google OAuth**
+3. Redirect URLs:
+   - Sign-in: `http://localhost:5173/sign-in` / `https://your-app.vercel.app/sign-in`
+   - After sign-in: `http://localhost:5173/` / `https://your-app.vercel.app/`
+4. Copy **Publishable Key** → `VITE_CLERK_PUBLISHABLE_KEY`
+5. Copy **Secret Key** → `CLERK_SECRET_KEY`
 
-# After deployment, replace with your actual domains
-curl https://your-backend-domain.onrender.com/health
-curl https://your-frontend-domain.vercel.app
+---
+
+## Testing Checklist
+
+- [ ] `GET /health` → `{"status":"ok"}`
+- [ ] Sign up → redirected to home, history empty
+- [ ] Text analysis (< 200 chars) → 422 error
+- [ ] Job description (< 100 chars) → 422 error
+- [ ] "Ignore all previous instructions" in resume → 400 error
+- [ ] Rename .jpg to .pdf → 400 "Invalid file type"
+- [ ] 6MB PDF → 400 "File too large"
+- [ ] 5 analyses → 6th returns 429 with `X-RateLimit-Remaining: 0`
+- [ ] Navbar shows "X of 5 analyses left today"
+- [ ] History page lists user's analyses only
+- [ ] Pre-commit hooks run on commit
+
+---
+
+## Project Structure
+
+```
+resume-job-analyzer/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── deps.py          # Clerk JWT verification
+│   │   │   └── routes/
+│   │   │       ├── analysis.py  # /analyze, /usage
+│   │   │       └── history.py   # CRUD
+│   │   ├── core/config.py       # Pydantic Settings
+│   │   ├── main.py              # FastAPI + security headers
+│   │   ├── models/              # Pydantic models
+│   │   └── services/
+│   │       ├── chain.py         # LangChain + Groq
+│   │       ├── mongo_service.py # Motor MongoDB
+│   │       ├── qdrant_service.py# Vector search
+│   │       ├── parser.py        # PDF + text validation
+│   │       ├── sanitizer.py     # Input sanitization + injection detection
+│   │       └── rate_limit_service.py # Daily limit + MongoDB TTL
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── HistorySidebar.tsx
+│   │   │   ├── HistoryItem.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── UsageBadge.tsx
+│   │   │   └── ...
+│   │   ├── hooks/
+│   │   │   └── useUsage.ts
+│   │   ├── lib/
+│   │   │   ├── api.ts           # Axios + Clerk token interceptor
+│   │   │   ├── validators.ts    # Client-side validation
+│   │   │   └── ...
+│   │   ├── pages/
+│   │   │   ├── HomePage.tsx
+│   │   │   ├── SignInPage.tsx
+│   │   │   ├── SignUpPage.tsx
+│   │   │   ├── HistoryPage.tsx
+│   │   │   └── ResultsPage.tsx
+│   │   ├── App.tsx              # Routes + ClerkProvider
+│   │   └── main.tsx
+│   ├── vite.config.js
+│   └── package.json
+├── .pre-commit-config.yaml
+├── .secrets.baseline
+└── README.md
 ```
 
-## Development Setup
+---
 
-```bash
-cd backend
-python -m venv .venv
-.venv\\Scripts\\activate
-pip install -r requirements.txt
+## License
 
-# Optional: install dev dependencies
-pip install -r requirements-dev.txt
-
-copy .env.example .env
-
-# Run with auto-reload for development
-uvicorn app.main:app --reload
-```
-
-```bash
-cd frontend
-npm install
-copy .env.example .env
-
-# Start development server
-npm run dev
-```
-
-For backend tests:
-
-```bash
-cd backend
-pip install -r requirements-dev.txt
-pytest -q
-```
-
-Health check:
-
-```bash
-curl http://localhost:8000/health
-```
-
-## Frontend Setup
-
-```bash
-cd frontend
-npm install
-copy .env.example .env
-npm run dev
-```
-
-Open:
-
-```text
-http://localhost:5173
-```
-
-## Environment Variables
-
-Backend:
-
-```env
-APP_ENV=development
-ALLOWED_ORIGINS=http://localhost:5173
-GROQ_API_KEY=
-GROQ_MODEL=llama-3.3-70b-versatile
-GROQ_TEMPERATURE=0.3
-GROQ_MAX_TOKENS=2048
-QDRANT_URL=
-QDRANT_API_KEY=
-QDRANT_COLLECTION=resume_analyses
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-EMBEDDING_DIMENSIONS=384
-MONGODB_URI=
-MONGODB_DATABASE=resume_analyzer
-MONGODB_COLLECTION=analyses
-```
-
-Frontend:
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-## Phase 3 Testing Targets
-
-- `GET /health` returns status `ok`.
-- `POST /analyze` validates `X-Session-ID`.
-- Text resume mode rejects resumes under 200 characters.
-- Job description rejects text under 100 characters.
-- PDF mode rejects non-PDF files and files over 5MB.
-- Without `GROQ_API_KEY`, valid analysis requests return `503`.
-- With `GROQ_API_KEY`, valid analysis requests should return structured match results.
-- With `MONGODB_URI`, successful analyses are saved and available through `/history`.
-- With `QDRANT_URL` and `QDRANT_API_KEY`, successful analyses are vectorized and future analyses retrieve top-3 session context.
-- Frontend can submit valid text input and render structured analysis results.
-
-## External Integrations
-
-### Groq
-
-Add:
-
-```env
-GROQ_API_KEY=gsk_...
-```
-
-### MongoDB Atlas
-
-Create an Atlas cluster, database user, and network access rule. Add:
-
-```env
-MONGODB_URI=mongodb+srv://...
-MONGODB_DATABASE=resume_analyzer
-MONGODB_COLLECTION=analyses
-```
-
-### Qdrant Cloud
-
-Create a Qdrant Cloud cluster and API key. The app will create the collection if missing. Add:
-
-```env
-QDRANT_URL=https://xxx.qdrant.io
-QDRANT_API_KEY=...
-QDRANT_COLLECTION=resume_analyses
-```
-
-The first configured Qdrant run may download the local embedding model weights for `sentence-transformers/all-MiniLM-L6-v2`.
+MIT

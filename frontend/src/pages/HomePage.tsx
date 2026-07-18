@@ -7,6 +7,7 @@ import { HistorySidebar } from '../components/HistorySidebar';
 import { analyzeResume } from '../lib/api';
 import { useAuth } from '@clerk/clerk-react';
 import { useUsage } from '../hooks/useUsage';
+import { validateResumeText, validateJD, validatePDFFile } from '../lib/validators';
 
 type InputMode = 'text' | 'pdf';
 
@@ -21,6 +22,8 @@ export function HomePage() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [jdError, setJdError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [showColdStartWarning, setShowColdStartWarning] = useState(false);
@@ -36,7 +39,7 @@ export function HomePage() {
       navigate(`/results/${result.analysis_id}`);
     },
     onError: (caught: unknown) => {
-      const detail = 
+      const detail =
         typeof caught === 'object' &&
         caught !== null &&
         'response' in caught &&
@@ -45,7 +48,7 @@ export function HomePage() {
         'data' in caught.response
           ? (caught.response as { data?: { detail?: string; message?: string } }).data
           : null;
-      
+
       // Handle rate limit error (429)
       if (detail && typeof detail === 'object' && 'message' in detail && detail.message) {
         setError(detail.message);
@@ -101,21 +104,27 @@ export function HomePage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setResumeError(null);
+    setJdError(null);
 
-    if (inputMode === 'text' && resumeText.trim().length < 200) {
-      setError('Resume text must be at least 200 characters.');
-      return;
+    // Client-side validation
+    if (inputMode === 'text') {
+      const rErr = validateResumeText(resumeText);
+      setResumeError(rErr);
+      if (rErr) return;
+    } else if (inputMode === 'pdf') {
+      if (!resumeFile) {
+        setError('Upload a PDF resume before analysis.');
+        return;
+      }
+      const fErr = validatePDFFile(resumeFile);
+      setResumeError(fErr);
+      if (fErr) return;
     }
 
-    if (inputMode === 'pdf' && !resumeFile) {
-      setError('Upload a PDF resume before analysis.');
-      return;
-    }
-
-    if (jobDescription.trim().length < 100) {
-      setError('Job description must be at least 100 characters.');
-      return;
-    }
+    const jErr = validateJD(jobDescription);
+    setJdError(jErr);
+    if (jErr) return;
 
     setIsSubmitting(true);
     setActiveStep(0);
@@ -279,7 +288,19 @@ export function HomePage() {
               </div>
             ) : null}
 
-            {isAtLimit && !error && (
+            {resumeError ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                {resumeError}
+              </div>
+            ) : null}
+
+            {jdError ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                {jdError}
+              </div>
+            ) : null}
+
+            {isAtLimit && !error && !resumeError && !jdError && (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
                 Daily limit reached. <a href="/pricing" className="text-primary underline">Upgrade to Pro</a> for unlimited analyses.
               </div>

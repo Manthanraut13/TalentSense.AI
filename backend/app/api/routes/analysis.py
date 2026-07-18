@@ -11,14 +11,15 @@ from app.services.chain import AnalysisServiceUnavailable, analyze as analyze_fn
 from app.services.mongo_service import mongo_service
 from app.services.parser import parse_pdf_upload, validate_job_description, validate_resume_text
 from app.services.qdrant_service import qdrant_service
-from app.services.rate_limit_service import check_rate_limit
+from app.services.rate_limit_service import check_rate_limit, get_usage_status as get_rate_limit_status
+from app.services.sanitizer import sanitize_text, validate_pdf_bytes, MAX_RESUME_CHARS, MAX_JD_CHARS, MAX_PDF_BYTES
 
 
 router = APIRouter(tags=["analysis"])
 logger = logging.getLogger(__name__)
 
 
-async def check_daily_rate_limit(user_id: str = Depends(get_current_user)) -> str:
+async def check_daily_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
     """Check daily rate limit (5 analyses per day for free users)."""
     rate_status = await check_rate_limit(user_id, is_pro=False)
 
@@ -48,13 +49,21 @@ async def analyze_resume(
     resume_text: str | None = Form(default=None),
     resume_file: UploadFile | None = File(default=None),
 ) -> AnalysisResult:
-    validated_job_description = validate_job_description(job_description)
+    # Sanitize job description
+    job_description = sanitize_text(job_description, MAX_JD_CHARS, "Job description")
 
     if input_mode == "text":
         if not resume_text:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume text is required for text input mode",
+            )
+        # Sanitize resume text
+        resume_text = sanitize_text(resume_text, MAX_RESUME_CHARS, "Resume")
+        if len(resume_text) < 200:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Resume text is too short after sanitization (minimum 200 characters)",
             )
         parsed_resume = validate_resume_text(resume_text)
     elif input_mode == "pdf":
@@ -63,21 +72,44 @@ async def analyze_resume(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume PDF is required for pdf input mode",
             )
+        pdf_bytes = await resume_file.read()
+        # Validate PDF before parsing
+        validate_pdf_bytes(pdf_bytes, resume_file.filename or "resume.pdf")
+        if len(pdf_bytes) > MAX_PDF_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"PDF file too large. Maximum size is {MAX_PDF_BYTES / (1024*1024)}MB.",
+            )
         parsed_resume = await parse_pdf_upload(resume_file)
+        # Sanitize extracted resume text
+        resume_text = sanitize_text(parsed_resume.text, MAX_RESUME_CHARS, "Resume")
+        if len(resume_text) < 200:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Resume is too short after processing (minimum 200 characters)",
+            )
+        # Update parsed_resume with sanitized text
+        parsed_resume.text = resume_text
     else:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='input_mode must be either "text" or "pdf"',
         )
 
+    if len(job_description) < 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Job description is too short (minimum 100 characters)",
+        )
+
     try:
         past_context = await qdrant_service.retrieve_context(
             user_id=user_id,
-            job_description=validated_job_description,
+            job_description=job_description,
         )
         ai_result = await analyze_fn(
             parsed_resume=parsed_resume,
-            job_description=validated_job_description,
+            job_description=job_description,
             past_context=past_context,
         )
     except AnalysisServiceUnavailable as exc:
@@ -130,11 +162,10 @@ async def analyze_resume(
 @router.get("/usage")
 async def get_usage_status(user_id: str = Depends(get_current_user)):
     """Return current user's daily usage stats."""
-    from app.services.rate_limit_service import get_usage_status
-    rate_status = await get_usage_status(user_id, is_pro=False)
+    rate_status = await get_rate_limit_status(user_id, is_pro=False)
     return {
-        "used": rate_status.used,
-        "limit": rate_status.limit,
-        "remaining": rate_status.remaining,
-        "is_pro": rate_status.is_pro,
+        "used": rate_status["used"],
+        "limit": rate_status["limit"],
+        "remaining": rate_status["remaining"],
+        "is_pro": rate_status["is_pro"],
     }
