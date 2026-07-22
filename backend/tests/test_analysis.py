@@ -1,5 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from app.api.deps import get_current_user
 from app.api.routes import analysis as analysis_route
 from app.api.routes import history as history_route
 from app.core.config import settings
@@ -7,11 +9,39 @@ from app.main import app
 from app.models.response import AIAnalysisPayload, AnalysisResult, HistoryItem, HistoryListResponse, Scores
 
 
+TEST_USER_ID = "user_test123"
 client = TestClient(app)
 
 
+class NoopQdrantService:
+    async def retrieve_context(self, *, user_id, job_description):
+        return "No past analysis context is available yet."
+
+    async def upsert_analysis(self, *, user_id, result, parsed_resume):
+        return result.analysis_id
+
+
+class NoopMongoService:
+    async def save_analysis(self, *, user_id, result, resume_text, qdrant_vector_id=None):
+        return True
+
+
+@pytest.fixture(autouse=True)
+def isolate_external_services(monkeypatch):
+    async def allow_rate_limit(user_id: str, is_pro: bool = False):
+        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
+
+    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(analysis_route, "qdrant_service", NoopQdrantService())
+    monkeypatch.setattr(analysis_route, "mongo_service", NoopMongoService())
+
+
 def valid_headers() -> dict[str, str]:
-    return {"X-Session-ID": "11111111-1111-4111-8111-111111111111"}
+    return {"Authorization": "Bearer test-token"}
+
+
+async def fake_current_user() -> str:
+    return TEST_USER_ID
 
 
 def valid_resume() -> str:
@@ -31,7 +61,15 @@ def valid_jd() -> str:
     )
 
 
-def test_analyze_requires_session_header() -> None:
+def setup_function() -> None:
+    app.dependency_overrides.clear()
+
+
+def teardown_function() -> None:
+    app.dependency_overrides.clear()
+
+
+def test_analyze_requires_authorization_header() -> None:
     response = client.post(
         "/analyze",
         data={
@@ -41,11 +79,13 @@ def test_analyze_requires_session_header() -> None:
         },
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Missing X-Session-ID header"
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["header", "authorization"]
 
 
 def test_analyze_rejects_short_resume() -> None:
+    app.dependency_overrides[get_current_user] = fake_current_user
+
     response = client.post(
         "/analyze",
         headers=valid_headers(),
@@ -60,7 +100,13 @@ def test_analyze_rejects_short_resume() -> None:
 
 
 def test_analyze_returns_503_without_groq_key(monkeypatch) -> None:
+    app.dependency_overrides[get_current_user] = fake_current_user
+
+    async def allow_rate_limit(user_id: str, is_pro: bool = False):
+        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
+
     monkeypatch.setattr(settings, "groq_api_key", None)
+    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/analyze",
@@ -77,30 +123,36 @@ def test_analyze_returns_503_without_groq_key(monkeypatch) -> None:
 
 
 def test_analyze_returns_ai_payload_when_chain_succeeds(monkeypatch) -> None:
-    class FakeAnalysisChain:
-        async def analyze(self, *, parsed_resume, job_description, past_context=""):
-            assert len(parsed_resume.text) >= 200
-            assert len(job_description) >= 100
-            return AIAnalysisPayload(
-                job_title="Senior Python Developer",
-                scores=Scores(
-                    overall=72,
-                    skills_match=80,
-                    experience_relevance=65,
-                    keyword_coverage=70,
-                ),
-                missing_skills=["Kubernetes", "Redis", "System Design"],
-                ats_keywords=["microservices", "CI/CD", "REST API", "cloud-native", "agile"],
-                strengths=["Strong Python backend experience", "Relevant FastAPI work"],
-                improvement_tips=[
-                    "Add Kubernetes to the Skills section.",
-                    "Include metrics in backend API bullets.",
-                    "Mirror REST API terminology from the job description.",
-                ],
-                context_note="No past context was available.",
-            )
+    app.dependency_overrides[get_current_user] = fake_current_user
 
-    monkeypatch.setattr(analysis_route, "analysis_chain", FakeAnalysisChain())
+    async def allow_rate_limit(user_id: str, is_pro: bool = False):
+        assert user_id == TEST_USER_ID
+        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
+
+    async def fake_analyze(*, parsed_resume, job_description, past_context=""):
+        assert len(parsed_resume.text) >= 200
+        assert len(job_description) >= 100
+        return AIAnalysisPayload(
+            job_title="Senior Python Developer",
+            scores=Scores(
+                overall=72,
+                skills_match=80,
+                experience_relevance=65,
+                keyword_coverage=70,
+            ),
+            missing_skills=["Kubernetes", "Redis", "System Design"],
+            ats_keywords=["microservices", "CI/CD", "REST API", "cloud-native", "agile"],
+            strengths=["Strong Python backend experience", "Relevant FastAPI work"],
+            improvement_tips=[
+                "Add Kubernetes to the Skills section.",
+                "Include metrics in backend API bullets.",
+                "Mirror REST API terminology from the job description.",
+            ],
+            context_note="No past context was available.",
+        )
+
+    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(analysis_route, "analyze_fn", fake_analyze)
 
     response = client.post(
         "/analyze",
@@ -117,53 +169,61 @@ def test_analyze_returns_ai_payload_when_chain_succeeds(monkeypatch) -> None:
     assert body["job_title"] == "Senior Python Developer"
     assert body["scores"]["overall"] == 72
     assert len(body["ats_keywords"]) == 5
+    assert response.headers["X-RateLimit-Remaining"] == "4"
 
 
 def test_analyze_retrieves_context_and_saves_history(monkeypatch) -> None:
+    app.dependency_overrides[get_current_user] = fake_current_user
     calls = {"context": False, "upsert": False, "save": False}
 
-    class FakeAnalysisChain:
-        async def analyze(self, *, parsed_resume, job_description, past_context=""):
-            assert "Previous backend analysis" in past_context
-            return AIAnalysisPayload(
-                job_title="Backend Engineer",
-                scores=Scores(
-                    overall=81,
-                    skills_match=85,
-                    experience_relevance=80,
-                    keyword_coverage=78,
-                ),
-                missing_skills=["Redis"],
-                ats_keywords=["FastAPI", "REST API", "PostgreSQL", "CI/CD", "testing"],
-                strengths=["Strong API experience", "Testing experience"],
-                improvement_tips=[
-                    "Add Redis if relevant.",
-                    "Mention CI/CD deployment details.",
-                    "Add PostgreSQL impact metrics.",
-                ],
-                context_note="Compared against previous backend analysis.",
-            )
+    async def allow_rate_limit(user_id: str, is_pro: bool = False):
+        assert user_id == TEST_USER_ID
+        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
+
+    async def fake_analyze(*, parsed_resume, job_description, past_context=""):
+        assert "Previous backend analysis" in past_context
+        return AIAnalysisPayload(
+            job_title="Backend Engineer",
+            scores=Scores(
+                overall=81,
+                skills_match=85,
+                experience_relevance=80,
+                keyword_coverage=78,
+            ),
+            missing_skills=["Redis"],
+            ats_keywords=["FastAPI", "REST API", "PostgreSQL", "CI/CD", "testing"],
+            strengths=["Strong API experience", "Testing experience"],
+            improvement_tips=[
+                "Add Redis if relevant.",
+                "Mention CI/CD deployment details.",
+                "Add PostgreSQL impact metrics.",
+            ],
+            context_note="Compared against previous backend analysis.",
+        )
 
     class FakeQdrantService:
-        async def retrieve_context(self, *, session_id, job_description):
+        async def retrieve_context(self, *, user_id, job_description):
             calls["context"] = True
-            assert session_id == valid_headers()["X-Session-ID"]
+            assert user_id == TEST_USER_ID
             assert "Python backend developer" in job_description
             return "Previous backend analysis scored 70."
 
-        async def upsert_analysis(self, *, session_id, result, parsed_resume):
+        async def upsert_analysis(self, *, user_id, result, parsed_resume):
             calls["upsert"] = True
+            assert user_id == TEST_USER_ID
             assert result.job_title == "Backend Engineer"
             return result.analysis_id
 
     class FakeMongoService:
-        async def save_analysis(self, *, session_id, result, resume_text, qdrant_vector_id=None):
+        async def save_analysis(self, *, user_id, result, resume_text, qdrant_vector_id=None):
             calls["save"] = True
+            assert user_id == TEST_USER_ID
             assert qdrant_vector_id == result.analysis_id
             assert len(resume_text) >= 200
             return True
 
-    monkeypatch.setattr(analysis_route, "analysis_chain", FakeAnalysisChain())
+    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(analysis_route, "analyze_fn", fake_analyze)
     monkeypatch.setattr(analysis_route, "qdrant_service", FakeQdrantService())
     monkeypatch.setattr(analysis_route, "mongo_service", FakeMongoService())
 
@@ -183,6 +243,7 @@ def test_analyze_retrieves_context_and_saves_history(monkeypatch) -> None:
 
 
 def test_history_routes_use_mongo_and_qdrant_services(monkeypatch) -> None:
+    app.dependency_overrides[get_current_user] = fake_current_user
     result = AnalysisResult(
         analysis_id="22222222-2222-4222-8222-222222222222",
         job_title="Backend Engineer",
@@ -205,7 +266,8 @@ def test_history_routes_use_mongo_and_qdrant_services(monkeypatch) -> None:
         qdrant_vector_id = result.analysis_id
 
     class FakeMongoService:
-        async def list_history(self, *, session_id, limit=10, skip=0):
+        async def list_history(self, *, user_id, limit=10, skip=0):
+            assert user_id == TEST_USER_ID
             assert limit == 10
             assert skip == 0
             return HistoryListResponse(
@@ -220,11 +282,13 @@ def test_history_routes_use_mongo_and_qdrant_services(monkeypatch) -> None:
                 total=1,
             )
 
-        async def get_analysis(self, *, session_id, analysis_id):
+        async def get_analysis(self, *, user_id, analysis_id):
+            assert user_id == TEST_USER_ID
             assert analysis_id == result.analysis_id
             return result
 
-        async def delete_analysis(self, *, session_id, analysis_id):
+        async def delete_analysis(self, *, user_id, analysis_id):
+            assert user_id == TEST_USER_ID
             assert analysis_id == result.analysis_id
             return FakeDelete()
 

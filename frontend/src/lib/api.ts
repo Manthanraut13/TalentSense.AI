@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import type { AnalysisResult, HistoryListResponse, UsageStatus } from '../types';
+import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, HistoryListResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -67,5 +67,23 @@ export async function deleteAnalysis(analysisId: string) {
 
 export async function fetchUsage() {
   const response = await api.get<UsageStatus>('/usage');
+  return response.data;
+}
+
+export async function fetchBillingStatus() {
+  const response = await api.get<BillingStatus>('/api/billing/status');
+  return response.data;
+}
+
+export async function createCheckoutSession(params: {
+  email?: string;
+  successUrl: string;
+  cancelUrl: string;
+}) {
+  const response = await api.post<CheckoutSessionResponse>('/api/billing/create-checkout-session', {
+    email: params.email,
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+  });
   return response.data;
 }

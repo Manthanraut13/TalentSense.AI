@@ -28,10 +28,16 @@ class Settings(BaseSettings):
     # Clerk auth
     clerk_secret_key: str | None = None
     clerk_publishable_key: str | None = None
+    # Sentry
+    sentry_dsn: str = ""
 
     @cached_property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @cached_property
+    def environment(self) -> str:
+        return self.app_env
 
 
 settings = Settings()

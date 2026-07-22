@@ -35,6 +35,24 @@ type UsageStatus = {
   limit: number;
   remaining: number;
   is_pro: boolean;
+  reset_at?: string | null;
 };
 
-export type { Scores, AnalysisResult, HistoryItem, HistoryListResponse, UsageStatus };
+type BillingStatus = {
+  plan: 'free' | 'pro';
+  is_pro: boolean;
+};
+
+type CheckoutSessionResponse = {
+  checkout_url: string;
+};
+
+export type {
+  Scores,
+  AnalysisResult,
+  HistoryItem,
+  HistoryListResponse,
+  UsageStatus,
+  BillingStatus,
+  CheckoutSessionResponse,
+};

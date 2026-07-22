@@ -16,3 +16,6 @@ slowapi
 limits
 bleach
 python-magic
+sentry-sdk[fastapi]
+loguru
+stripe

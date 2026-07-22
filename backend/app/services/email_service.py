@@ -1,0 +1,65 @@
+import resend
+from app.core.config import settings
+
+resend.api_key = settings.resend_api_key
+
+
+def _send(to: str, subject: str, html: str):
+    try:
+        resend.Emails.send({
+            "from": f"Resume Analyzer <{settings.FROM_EMAIL}>",
+            "to": to,
+            "subject": subject,
+            "html": html,
+        })
+    except Exception as e:
+        from app.core.logger import logger
+        logger.error("Email send failed: {}", str(e))
+
+
+async def send_welcome_email(to: str, first_name: str):
+    html = f"""
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+      <h1 style="color:#10B981;margin-bottom:8px">Welcome to Resume Analyzer 🎯</h1>
+      <p style="color:#555">Hi {first_name},</p>
+      <p style="color:#555">You're all set. Here's what you can do:</p>
+      <ul style="color:#555">
+        <li>Upload your resume (PDF) or paste it</li>
+        <li>Paste any job description</li>
+        <li>Get an instant match score, missing skills, and ATS keywords</li>
+      </ul>
+      <a href="{settings.APP_URL}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+        Start Analyzing →
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:32px">
+        You have 5 free analyses per day. <a href="{settings.APP_URL}/pricing" style="color:#10B981">Upgrade to Pro</a> for unlimited access.
+      </p>
+    </div>
+    """
+    _send(to, "Welcome to Resume Analyzer 🎯", html)
+
+
+async def send_upgrade_confirmation_email(to: str, first_name: str):
+    html = f"""
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+      <h1 style="color:#10B981">You're now a Pro member! 🚀</h1>
+      <p style="color:#555">Hi {first_name}, your Pro subscription is active.</p>
+      <p style="color:#555">What's unlocked:</p>
+      <ul style="color:#555">
+        <li>✅ Unlimited analyses every day</li>
+        <li>✅ Job URL auto-scraping (LinkedIn, Indeed, Naukri)</li>
+        <li>✅ PDF report export</li>
+        <li>✅ Analysis history forever</li>
+      </ul>
+      <a href="{settings.APP_URL}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+        Go to Dashboard →
+      </a>
+    </div>
+    """
+    _send(to, "Welcome to Pro — Resume Analyzer 🚀", html)
+
+
+email_service = type('EmailService', (), {
+    'send_welcome_email': staticmethod(send_welcome_email),
+    'send_upgrade_confirmation_email': staticmethod(send_upgrade_confirmation_email),
+})()

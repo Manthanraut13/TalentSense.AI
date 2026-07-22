@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
-from app.core.config import settings
 from app.services.mongo_service import mongo_service
 
 logger = logging.getLogger(__name__)
 
 DAILY_LIMIT = 5
+
+
+def _today_utc() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _next_midnight_utc() -> str:
+    now = datetime.now(timezone.utc)
+    tomorrow = now.date() + timedelta(days=1)
+    return datetime.combine(tomorrow, datetime.min.time(), tzinfo=timezone.utc).isoformat()
 
 
 async def check_rate_limit(user_id: str, is_pro: bool = False) -> dict:
@@ -25,13 +33,13 @@ async def check_rate_limit(user_id: str, is_pro: bool = False) -> dict:
         return {"allowed": True, "used": 0, "limit": DAILY_LIMIT, "remaining": DAILY_LIMIT}
 
     # Use existing mongo_service indexes (already created in _ensure_indexes)
-    today = date.today()
+    today = _today_utc()
 
     from pymongo import ReturnDocument
 
     result = await collection.database.rate_limits.find_one_and_update(
-        {"user_id": user_id, "date": today.isoformat()},
-        {"$inc": {"count": 1}, "$setOnInsert": {"user_id": user_id, "date": today.isoformat()}},
+        {"user_id": user_id, "date": today},
+        {"$inc": {"count": 1}, "$setOnInsert": {"user_id": user_id, "date": today}},
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
@@ -40,10 +48,11 @@ async def check_rate_limit(user_id: str, is_pro: bool = False) -> dict:
     remaining = max(0, DAILY_LIMIT - count)
 
     return {
-        "allowed": count < DAILY_LIMIT,
+        "allowed": count <= DAILY_LIMIT,
         "used": count,
         "limit": DAILY_LIMIT,
         "remaining": remaining,
+        "reset_at": _next_midnight_utc(),
     }
 
 
@@ -56,17 +65,15 @@ async def get_usage_status(user_id: str, is_pro: bool = False) -> dict:
     if collection is None:
         return {"used": 0, "limit": DAILY_LIMIT, "remaining": DAILY_LIMIT, "is_pro": False}
 
-    today = date.today()
-    doc = await collection.database.rate_limits.find_one({"user_id": user_id, "date": today.isoformat()})
+    today = _today_utc()
+    doc = await collection.database.rate_limits.find_one({"user_id": user_id, "date": today})
     count = doc["count"] if doc else 0
     remaining = max(0, DAILY_LIMIT - count)
-
-    reset_at = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
 
     return {
         "used": count,
         "limit": DAILY_LIMIT,
         "remaining": remaining,
         "is_pro": False,
-        "reset_at": reset_at.isoformat() if reset_at else None,
+        "reset_at": _next_midnight_utc(),
     }
