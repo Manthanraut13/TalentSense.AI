@@ -1,42 +1,19 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 
 import { HistoryItem } from '../components/HistoryItem';
 import { fetchHistory } from '../lib/api';
-import { formatDate, scoreColorClass } from '../lib/format';
 import type { HistoryListResponse, HistoryItem as HistoryItemType } from '../types';
+import { useQuery } from '@tanstack/react-query';
 
 export function HistoryPage() {
   const { userId, isLoaded } = useAuth();
-  const [history, setHistory] = useState<HistoryListResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isLoaded || !userId) return;
-
-    fetchHistory()
-      .then(setHistory)
-      .catch(() => setError('Could not load history.'));
-  }, [userId, isLoaded]);
-
-  const handleDelete = (analysisId: string) => {
-    if (history) {
-      setHistory({
-        ...history,
-        analyses: history.analyses.filter((item: HistoryItemType) => item.analysis_id !== analysisId),
-        total: history.total - 1,
-      });
-    }
-  };
-
-  if (!isLoaded) {
-    return (
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="text-textSecondary">Loading...</div>
-      </main>
-    );
-  }
+  const { data: history, isLoading, error } = useQuery({
+    queryKey: ['history', userId],
+    queryFn: () => fetchHistory(),
+    enabled: isLoaded && !!userId,
+  });
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -58,15 +35,23 @@ export function HistoryPage() {
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        {history?.analyses.map((item: HistoryItemType) => (
-          <HistoryItem
-            key={item.analysis_id}
-            item={item}
-            onDelete={handleDelete}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse rounded-lg border border-line bg-surface p-4 h-24" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {history?.analyses.map((item: HistoryItemType) => (
+            <HistoryItem
+              key={item.analysis_id}
+              item={item}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUsage } from '../lib/api';
 
@@ -9,9 +10,11 @@ export interface UsageStatus {
 }
 
 export function useUsage() {
+  const { isLoaded, userId } = useAuth();
   return useQuery<UsageStatus>({
-    queryKey: ['usage'],
+    queryKey: ['usage', userId],
     queryFn: fetchUsage,
+    enabled: isLoaded && !!userId,
     refetchInterval: 60000,
     staleTime: 30000,
   });

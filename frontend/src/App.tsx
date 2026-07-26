@@ -14,6 +14,7 @@ const SignInPage = lazy(() => import('./pages/SignInPage'));
 const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const UpgradeSuccessPage = lazy(() => import('./pages/UpgradeSuccessPage'));
+const DashboardPage = lazy(() => import('./pages/Dashboard'));
 
 function LoadingFallback() {
   return (
@@ -24,11 +25,19 @@ function LoadingFallback() {
 }
 
 export function App() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
 
-  useEffect(() => {
+  if (isLoaded) {
     setTokenGetter(getToken);
-  }, [getToken]);
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="text-textSecondary">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-base text-textPrimary">
@@ -95,6 +104,16 @@ export function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <DashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="*"
@@ -131,6 +150,9 @@ function AuthNav() {
     <div className="flex items-center gap-4">
       <Link to="/pricing" className="text-sm text-textSecondary transition hover:text-primary">
         Pricing
+      </Link>
+      <Link to="/dashboard" className="text-sm text-textSecondary transition hover:text-primary">
+        Dashboard
       </Link>
       <UsageBadge />
       <span className="text-sm text-textSecondary hidden md:block">

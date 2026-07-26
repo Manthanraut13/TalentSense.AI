@@ -47,6 +47,18 @@ type CheckoutSessionResponse = {
   checkout_url: string;
 };
 
+type DashboardStats = {
+  total_analyses: number;
+  avg_overall: number;
+  avg_skills: number;
+  avg_experience: number;
+  avg_keywords: number;
+  best_score: number;
+  worst_score: number;
+  score_trend: { date: string; score: number; job_title: string }[];
+  top_missing_skills: { skill: string; count: number }[];
+};
+
 export type {
   Scores,
   AnalysisResult,
@@ -55,4 +67,5 @@ export type {
   UsageStatus,
   BillingStatus,
   CheckoutSessionResponse,
+  DashboardStats,
 };

@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import api from '../lib/api';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle } from 'lucide-react';
 
@@ -17,7 +19,17 @@ export function HomePage() {
   const { isSignedIn, userId } = useAuth();
   const { data: usage } = useUsage();
   const isAtLimit = usage && !usage.is_pro && usage.remaining === 0;
-  const [inputMode, setInputMode] = useState<InputMode>('text');
+  const [jdMode, setJdMode] = useState<'paste' | 'url'>('paste');
+  const [jdUrl, setJdUrl] = useState('');
+  const [jdText, setJdText] = useState('');
+  const [jdError, setJdError] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  // Sync JD text with job description when switching to paste mode
+  useEffect(() => {
+    if (jdMode === 'paste') {
+      setJobDescription(jdText);
+    }
+  }, [jdMode, jdText]);
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -234,7 +246,7 @@ export function HomePage() {
                 </div>
 
                 {inputMode === 'text' ? (
-                  <textarea
+                  <div className="flex flex-col gap-2">
                     value={resumeText}
                     onChange={(event) => setResumeText(event.target.value)}
                     className="mt-4 min-h-72 w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
@@ -261,21 +273,7 @@ export function HomePage() {
               </section>
 
               <section className="rounded-lg border border-line bg-surface p-5">
-                <h2 className="flex items-center gap-2 text-xl font-semibold">
-                  <Briefcase className="text-secondary" size={20} />
-                  Job Description
-                </h2>
-                <textarea
-                  value={jobDescription}
-                  onChange={(event) => setJobDescription(event.target.value)}
-                  className="mt-4 min-h-[336px] w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
-                  placeholder="Paste the full job description here..."
-                  required
-                  aria-required="true"
-                />
-              </section>
-            </div>
-
+// TODO: Update Job Description section to support URL mode
             {error ? (
               <div
                 ref={errorRef}
