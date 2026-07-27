@@ -51,6 +51,11 @@ async def get_current_user(authorization: str = Header(...)) -> str:
     Returns the user_id (Clerk's user ID, e.g. 'user_2abc123').
     Raises 401 if token is invalid or missing.
     """
+    # Test mode: bypass auth with a test user
+    print(f"DEBUG: test_mode = {settings.test_mode}")
+    if settings.test_mode:
+        return "test_user_123"
+
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header format")
 
@@ -82,6 +87,7 @@ async def get_current_user(authorization: str = Header(...)) -> str:
         print("exp :", datetime.fromtimestamp(claims["exp"], timezone.utc))
 
         # Decode and verify the token
+        key = jwks.get("keys")[0]  # Use first key for RS256
         payload = jwt.decode(
             token,
             key,

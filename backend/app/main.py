@@ -2,9 +2,8 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 
-from app.api.routes import analysis, billing, history, scrape
+from app.api.routes import analysis, billing, history, scrape, resumes
 from app.core.config import settings
 from app.core.monitoring import init_sentry
 
@@ -27,7 +26,6 @@ def create_app() -> FastAPI:
         allow_headers=["Content-Type", "X-Session-ID", "Authorization"],
     )
 
-    # Security headers middleware
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
@@ -40,7 +38,9 @@ def create_app() -> FastAPI:
 
     app.include_router(analysis.router)
     app.include_router(history.router)
+    app.include_router(billing.router)
     app.include_router(scrape.router)
+    app.include_router(resumes.router)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

@@ -28,8 +28,15 @@ class Settings(BaseSettings):
     # Clerk auth
     clerk_secret_key: str | None = None
     clerk_publishable_key: str | None = None
+    # Resend email service
+    resend_api_key: str = ""
+    from_email: str = "noreply@resumeanalyzer.app"
+    app_url: str = "https://your-app.vercel.app"
+    # Test mode (bypasses auth for local testing)
+    test_mode: bool = False
     # Sentry
     sentry_dsn: str = ""
+
 
     @cached_property
     def allowed_origins_list(self) -> list[str]:

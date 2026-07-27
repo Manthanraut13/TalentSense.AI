@@ -56,7 +56,13 @@ async def analyze_resume(
     sentry_sdk.set_user({"id": user_id})
 
     # Sanitize job description
+    original_jd = job_description
     job_description = sanitize_text(job_description, MAX_JD_CHARS, "Job description")
+
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"JD validation: original_len={len(original_jd)}, sanitized_len={len(job_description)}, raw_start={original_jd[:50]!r}")
 
     if input_mode == "text":
         if not resume_text:

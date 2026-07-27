@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import re
-
 from fastapi import HTTPException, UploadFile, status
+from typing import Optional
 
 
 MAX_PDF_BYTES = 5 * 1024 * 1024
@@ -124,3 +124,19 @@ def match_section_header(line: str) -> str | None:
         if re.match(pattern, normalized, flags=re.IGNORECASE):
             return section
     return None
+
+
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    """Extract text from PDF bytes using PyMuPDF."""
+    import fitz
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as document:
+        page_text = [page.get_text("text") for page in document]
+    return "\n".join(page_text)
+
+
+def format_resume_for_llm(parsed_resume) -> str:
+    """Format a ParsedResume object into a formatted text string for LLM processing."""
+    parts = []
+    if parsed_resume.text:
+        parts.append(parsed_resume.text)
+    return "\n".join(parts)

@@ -27,20 +27,31 @@ INJECTION_PATTERNS = [
 
 def sanitize_text(text: str, max_chars: int, field_name: str = "Input") -> str:
     """Clean and validate user-provided text. Raises HTTPException 400 if injection detected."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"sanitize_text: field={field_name}, input_len={len(text) if text else 0}, input_start={text[:50] if text else None!r}")
+
     if not text or not text.strip():
+        logger.warning(f"sanitize_text: {field_name} - empty or whitespace only")
         raise HTTPException(status_code=422, detail=f"{field_name} cannot be empty")
 
     # 1. Strip HTML tags
+    original_len = len(text)
     text = bleach.clean(text, tags=[], strip=True)
+    if len(text) != original_len:
+        logger.info(f"sanitize_text: HTML stripped, len {original_len} -> {len(text)}")
 
     # 2. Truncate to max length
     if len(text) > max_chars:
+        logger.info(f"sanitize_text: truncating from {len(text)} to {max_chars}")
         text = text[:max_chars]
 
     # 3. Check for prompt injection
     text_lower = text.lower()
     for pattern in INJECTION_PATTERNS:
         if re.search(pattern, text_lower, re.IGNORECASE):
+            logger.warning(f"sanitize_text: Injection pattern matched: {pattern}")
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -49,6 +60,7 @@ def sanitize_text(text: str, max_chars: int, field_name: str = "Input") -> str:
                 )
             )
 
+    logger.info(f"sanitize_text: final_len={len(text)}, final_start={text[:50]!r}")
     return text.strip()
 
 

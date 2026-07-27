@@ -1,10 +1,11 @@
 import resend
 from app.core.config import settings
 
-resend.api_key = settings.resend_api_key
+resend.api_key = settings.RESEND_API_KEY
 
 
 def _send(to: str, subject: str, html: str):
+    """Base send function — wraps Resend API."""
     try:
         resend.Emails.send({
             "from": f"Resume Analyzer <{settings.FROM_EMAIL}>",
@@ -13,6 +14,7 @@ def _send(to: str, subject: str, html: str):
             "html": html,
         })
     except Exception as e:
+        # Email failure should NEVER crash the main request
         from app.core.logger import logger
         logger.error("Email send failed: {}", str(e))
 
@@ -57,9 +59,3 @@ async def send_upgrade_confirmation_email(to: str, first_name: str):
     </div>
     """
     _send(to, "Welcome to Pro — Resume Analyzer 🚀", html)
-
-
-email_service = type('EmailService', (), {
-    'send_welcome_email': staticmethod(send_welcome_email),
-    'send_upgrade_confirmation_email': staticmethod(send_upgrade_confirmation_email),
-})()

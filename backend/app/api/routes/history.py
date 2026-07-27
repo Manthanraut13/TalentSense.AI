@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import get_current_user
 from app.models.response import HistoryListResponse
 from app.services.mongo_service import mongo_service
 from app.services.qdrant_service import qdrant_service
+from app.services.pdf_export import generate_analysis_pdf
+from app.services.user_service import get_user_plan
+import io
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -48,30 +52,52 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
             "_id": None,
             "total_analyses": {"$sum": 1},
             "avg_overall": {"$avg": "$scores.overall"},
-            "avg_skills": {"$avg": "$scores.skills_match"},
-            "avg_experience": {"$avg": "$scores.experience_relevance"},
-            "avg_keywords": {"$avg": "$scores.keyword_coverage"},
-            "best_score": {"$max": "$scores.overall"},
-            "worst_score": {"$min": "$scores.overall"},
-            "all_missing_skills": {"$push": "$missing_skills"},
-            "score_trend": {"$push": {"date": "$timestamp", "score": "$scores.overall", "job_title": "$job_title"}}
         }}
     ]
-    result = await collection.aggregate(pipeline).to_list(1)
-    if not result:
-        return {"total_analyses": 0, "avg_overall": 0, "score_trend": [], "top_missing_skills": []}
-    stats = result[0]
+
+    stats = await collection.aggregate(pipeline).to_list()
+    if not stats:
+        return {"total_analyses": 0, "score_trend": [], "top_missing_skills": []}
+
+    score_trend = [
+        {"date": doc["timestamp"][:10], "score": doc["avg_overall"]}
+        for doc in stats
+    ]
+
+    all_missing = []
+    for doc in stats:
+        all_missing.extend(doc.get("missing_skills", []))
+
     from collections import Counter
-    all_skills = [skill for sublist in stats["all_missing_skills"] for skill in sublist]
-    top_missing = [{"skill": k, "count": v} for k, v in Counter(all_skills).most_common(8)]
+    top_missing_skills = Counter(all_missing).most_common(10)
+
     return {
-        "total_analyses": stats["total_analyses"],
-        "avg_overall": round(stats["avg_overall"], 1),
-        "avg_skills": round(stats["avg_skills"], 1),
-        "avg_experience": round(stats["avg_experience"], 1),
-        "avg_keywords": round(stats["avg_keywords"], 1),
-        "best_score": stats["best_score"],
-        "worst_score": stats["worst_score"],
-        "score_trend": stats["score_trend"][-20:],
-        "top_missing_skills": top_missing,
+        "total_analyses": stats[0]["total_analyses"],
+        "score_trend": score_trend,
+        "top_missing_skills": [skill for skill, _ in top_missing_skills]
     }
+
+@router.get("/{analysis_id}/export-pdf")
+async def export_analysis_pdf(
+    analysis_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Generate and return a PDF export of the analysis. Pro only."""
+    plan = await get_user_plan(user_id)
+    if plan != "pro":
+        raise HTTPException(403, "PDF export is a Pro feature")
+
+    doc = await mongo_service.get_analysis(user_id=user_id, analysis_id=analysis_id)
+    if not doc:
+        raise HTTPException(404, "Analysis not found")
+
+    pdf_bytes = generate_analysis_pdf(doc)
+
+    safe_title = doc["job_title"].replace(" ", "_").replace("/", "-")[:30]
+    filename = f"analysis_{safe_title}_{analysis_id[:8]}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

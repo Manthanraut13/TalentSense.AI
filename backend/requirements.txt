@@ -19,3 +19,5 @@ python-magic
 sentry-sdk[fastapi]
 loguru
 stripe
+resend
+fpdf2
