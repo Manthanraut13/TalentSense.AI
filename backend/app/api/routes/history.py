@@ -52,6 +52,17 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
             "_id": None,
             "total_analyses": {"$sum": 1},
             "avg_overall": {"$avg": "$scores.overall"},
+            "avg_skills": {"$avg": "$scores.skills_match"},
+            "avg_experience": {"$avg": "$scores.experience_relevance"},
+            "avg_keywords": {"$avg": "$scores.keyword_coverage"},
+            "best_score": {"$max": "$scores.overall"},
+            "worst_score": {"$min": "$scores.overall"},
+            "all_docs": {"$push": {
+                "timestamp": "$timestamp",
+                "job_title": "$job_title",
+                "score": "$scores.overall",
+                "missing_skills": "$missing_skills",
+            }},
         }}
     ]
 
@@ -59,22 +70,36 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
     if not stats:
         return {"total_analyses": 0, "score_trend": [], "top_missing_skills": []}
 
+    doc = stats[0]
+
     score_trend = [
-        {"date": doc["timestamp"][:10], "score": doc["avg_overall"]}
-        for doc in stats
+        {
+            "date": d["timestamp"][:10],
+            "score": d["score"],
+            "job_title": d["job_title"],
+        }
+        for d in doc["all_docs"]
     ]
 
-    all_missing = []
-    for doc in stats:
-        all_missing.extend(doc.get("missing_skills", []))
-
     from collections import Counter
-    top_missing_skills = Counter(all_missing).most_common(10)
+    all_missing = []
+    for d in doc["all_docs"]:
+        all_missing.extend(d.get("missing_skills") or [])
+    top_missing_skills = [
+        {"skill": skill, "count": count}
+        for skill, count in Counter(all_missing).most_common(10)
+    ]
 
     return {
-        "total_analyses": stats[0]["total_analyses"],
+        "total_analyses": doc["total_analyses"],
+        "avg_overall": round(doc["avg_overall"]),
+        "avg_skills": round(doc["avg_skills"]),
+        "avg_experience": round(doc["avg_experience"]),
+        "avg_keywords": round(doc["avg_keywords"]),
+        "best_score": doc["best_score"],
+        "worst_score": doc["worst_score"],
         "score_trend": score_trend,
-        "top_missing_skills": [skill for skill, _ in top_missing_skills]
+        "top_missing_skills": top_missing_skills,
     }
 
 @router.get("/{analysis_id}/export-pdf")

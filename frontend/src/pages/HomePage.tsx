@@ -137,9 +137,9 @@ export function HomePage() {
     }
 
 try {
-        let validatedJd = validateJD(jdText);
-        if (!validatedJd) {
-          setError('Invalid job description format');
+        const jdError = validateJD(jdText);
+        if (jdError) {
+          setError(jdError);
           setIsSubmitting(false);
           return;
         }
@@ -152,8 +152,13 @@ try {
             setIsSubmitting(false);
             return;
           }
-          const validatedResume = validateResumeText(resumeText);
-          parsedResume = validatedResume;
+          const resumeError = validateResumeText(resumeText);
+          if (resumeError) {
+            setError(resumeError);
+            setIsSubmitting(false);
+            return;
+          }
+          parsedResume = resumeText;
         } else {
           if (!resumeFile) {
             setError('Resume PDF is required');
@@ -162,23 +167,19 @@ try {
             return;
           }
 
-          const pdfBytes = await resumeFile.arrayBuffer();
-          const validatedPdf = validatePDFFile(resumeFile);
-          // PDF parsing placeholder - in production, you'd use a PDF parser
-          const resumeTextFromPdf = "PDF content extracted"; // Placeholder
-          if (!resumeTextFromPdf || resumeTextFromPdf.length < 200) {
-            setError('Resume is too short after processing (minimum 200 characters)');
-            setResumeError('');
+          const pdfError = validatePDFFile(resumeFile);
+          if (pdfError) {
+            setError(pdfError);
             setIsSubmitting(false);
             return;
           }
-          const validatedResumeFromPdf = validateResumeText(resumeTextFromPdf);
-          parsedResume = validatedResumeFromPdf;
+
+          parsedResume = ''; // Backend extracts text from the PDF
         }
 
         const result = await analyzeMutation.mutateAsync({
           inputMode,
-          jobDescription: validatedJd,
+          jobDescription: jdText,
           resumeText: parsedResume!,
           resumeFile: resumeFile || undefined,
         });

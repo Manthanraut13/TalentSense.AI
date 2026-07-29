@@ -4,16 +4,21 @@ import { useAuth } from '@clerk/clerk-react';
 import { HistoryItem } from '../components/HistoryItem';
 import { fetchHistory } from '../lib/api';
 import type { HistoryListResponse, HistoryItem as HistoryItemType } from '../types';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function HistoryPage() {
   const { userId, isLoaded } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: history, isLoading, error } = useQuery({
     queryKey: ['history', userId],
     queryFn: () => fetchHistory(),
     enabled: isLoaded && !!userId,
   });
+
+  function handleDelete() {
+    queryClient.invalidateQueries({ queryKey: ['history', userId] });
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
