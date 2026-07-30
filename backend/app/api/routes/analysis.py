@@ -12,9 +12,7 @@ from app.services.chain import AnalysisServiceUnavailable, analyze as analyze_fn
 from app.services.mongo_service import mongo_service
 from app.services.parser import parse_pdf_upload, validate_resume_text
 from app.services.qdrant_service import qdrant_service
-from app.services.rate_limit_service import check_rate_limit, get_usage_status as get_rate_limit_status
 from app.services.sanitizer import sanitize_text, validate_pdf_bytes, MAX_RESUME_CHARS, MAX_JD_CHARS
-from app.services.user_service import get_user_plan
 
 
 router = APIRouter(tags=["analysis"])
@@ -22,24 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 async def check_daily_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
-    """Check daily rate limit (5 analyses per day for free users)."""
-    plan = await get_user_plan(user_id)
-    rate_status = await check_rate_limit(user_id, is_pro=plan == "pro")
-
-    if not rate_status["allowed"]:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "message": "Daily analysis limit reached. Upgrade to Pro for unlimited analyses.",
-                "used": rate_status["used"],
-                "limit": rate_status["limit"],
-                "resets": "midnight UTC",
-            },
-        )
-
-    # Store rate limit info in request state for headers
-    request.state.rate_limit_info = rate_status
-    request.state.user_plan = plan
+    request.state.rate_limit_info = {"limit": -1, "used": 0, "remaining": -1}
     return user_id
 
 
@@ -55,24 +36,25 @@ async def analyze_resume(
 ) -> AnalysisResult:
     sentry_sdk.set_user({"id": user_id})
 
+    logger.info("Analysis started: input_mode=%s, jd_len=%d, has_resume_text=%s, has_resume_file=%s",
+                 input_mode, len(job_description), resume_text is not None, resume_file is not None)
+
     # Sanitize job description
     original_jd = job_description
     job_description = sanitize_text(job_description, MAX_JD_CHARS, "Job description")
 
-    # Debug logging
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"JD validation: original_len={len(original_jd)}, sanitized_len={len(job_description)}, raw_start={original_jd[:50]!r}")
+    logger.info("JD sanitized: original_len=%d, sanitized_len=%d", len(original_jd), len(job_description))
 
     if input_mode == "text":
         if not resume_text:
+            logger.warning("Analysis aborted: resume_text missing for text mode")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume text is required for text input mode",
             )
-        # Sanitize resume text
         resume_text = sanitize_text(resume_text, MAX_RESUME_CHARS, "Resume")
         if len(resume_text) < 200:
+            logger.warning("Analysis aborted: resume_text too short after sanitization (%d chars)", len(resume_text))
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume text is too short after sanitization (minimum 200 characters)",
@@ -80,47 +62,45 @@ async def analyze_resume(
         parsed_resume = validate_resume_text(resume_text)
     elif input_mode == "pdf":
         if resume_file is None:
+            logger.warning("Analysis aborted: resume_file missing for pdf mode")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume PDF is required for pdf input mode",
             )
         pdf_bytes = await resume_file.read()
-        # Validate PDF before parsing
         validate_pdf_bytes(pdf_bytes, resume_file.filename or "resume.pdf")
         await resume_file.seek(0)
+        logger.info("PDF validated: filename=%s, size=%d", resume_file.filename, len(pdf_bytes))
         parsed_resume = await parse_pdf_upload(resume_file)
-        # Sanitize extracted resume text
         resume_text = sanitize_text(parsed_resume.text, MAX_RESUME_CHARS, "Resume")
         if len(resume_text) < 200:
+            logger.warning("Analysis aborted: PDF resume too short after processing (%d chars)", len(resume_text))
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Resume is too short after processing (minimum 200 characters)",
             )
-        # ParsedResume is immutable; keep section metadata while using sanitized text.
         parsed_resume = replace(parsed_resume, text=resume_text)
     else:
+        logger.warning("Analysis aborted: invalid input_mode=%s", input_mode)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='input_mode must be either "text" or "pdf"',
         )
 
-    if len(job_description) < 100:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Job description is too short (minimum 100 characters)",
-        )
-
     try:
+        logger.info("Retrieving Qdrant context for user=%s", user_id)
         past_context = await qdrant_service.retrieve_context(
             user_id=user_id,
             job_description=job_description,
         )
+        logger.info("Calling Groq analysis LLM")
         ai_result = await analyze_fn(
             parsed_resume=parsed_resume,
             job_description=job_description,
             past_context=past_context,
         )
     except AnalysisServiceUnavailable as exc:
+        logger.error("Analysis failed: service unavailable — %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -137,6 +117,8 @@ async def analyze_resume(
         improvement_tips=ai_result.improvement_tips,
         context_note=ai_result.context_note or f"User {user_id} analyzed without prior context.",
     )
+
+    logger.info("LLM analysis complete: title=%s, overall_score=%d", result.job_title, result.scores.overall)
 
     qdrant_vector_id = await qdrant_service.upsert_analysis(
         user_id=user_id,
@@ -158,24 +140,17 @@ async def analyze_resume(
         else:
             result.context_note = "History was not saved."
 
-    # Rate limit headers — check_daily_rate_limit already incremented
-    rate_info = getattr(request.state, "rate_limit_info", {"limit": 5, "used": 0, "remaining": 5})
-    response.headers["X-RateLimit-Limit"] = str(rate_info["limit"])
-    response.headers["X-RateLimit-Remaining"] = str(rate_info["remaining"])
-    response.headers["X-RateLimit-Used"] = str(rate_info["used"])
+    # Rate limit headers
+    response.headers["X-RateLimit-Limit"] = "-1"
+    response.headers["X-RateLimit-Remaining"] = "-1"
+    response.headers["X-RateLimit-Used"] = "0"
 
+    logger.info("Analysis complete: analysis_id=%s, job_title=%s, score=%d",
+                 result.analysis_id, result.job_title, result.scores.overall)
     return result
 
 
 @router.get("/usage")
 async def get_usage_status(user_id: str = Depends(get_current_user)):
-    """Return current user's daily usage stats."""
-    plan = await get_user_plan(user_id)
-    rate_status = await get_rate_limit_status(user_id, is_pro=plan == "pro")
-    return {
-        "used": rate_status["used"],
-        "limit": rate_status["limit"],
-        "remaining": rate_status["remaining"],
-        "is_pro": rate_status["is_pro"],
-        "reset_at": rate_status.get("reset_at"),
-    }
+    logger.debug("Usage check for user=%s", user_id)
+    return {"used": 0, "limit": -1, "remaining": -1, "is_pro": True}

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.deps import get_current_user
@@ -11,6 +13,7 @@ from app.services.user_service import (
 )
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
+logger = logging.getLogger(__name__)
 
 
 def _stripe():
@@ -29,6 +32,7 @@ def _stripe():
 @router.post("/create-checkout-session")
 async def create_checkout_session(request: Request, user_id: str = Depends(get_current_user)):
     if not settings.stripe_pro_price_id:
+        logger.warning("Checkout session aborted: Stripe Pro price ID not configured")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Stripe Pro price ID is not configured",
@@ -39,6 +43,7 @@ async def create_checkout_session(request: Request, user_id: str = Depends(get_c
     success_url = body.get("success_url")
     cancel_url = body.get("cancel_url")
     if not success_url or not cancel_url:
+        logger.warning("Checkout session aborted: missing success_url or cancel_url")
         raise HTTPException(status_code=422, detail="success_url and cancel_url are required")
 
     user = await get_or_create_user(user_id, email=body.get("email", ""))
@@ -55,6 +60,7 @@ async def create_checkout_session(request: Request, user_id: str = Depends(get_c
         metadata={"user_id": user_id},
     )
 
+    logger.info("Checkout session created: user=%s, session=%s", user_id, session.id)
     return {"checkout_url": session.url}
 
 
@@ -67,10 +73,12 @@ async def stripe_webhook(request: Request):
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
     except Exception as exc:
+        logger.warning("Stripe webhook signature validation failed: %s", exc)
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook") from exc
 
     event_type = event["type"]
     data = event["data"]["object"]
+    logger.info("Stripe webhook received: type=%s", event_type)
 
     if event_type == "checkout.session.completed":
         customer_id = data.get("customer")
@@ -80,10 +88,13 @@ async def stripe_webhook(request: Request):
             await set_stripe_customer_id(user_id, customer_id)
         if customer_id:
             await upgrade_user_to_pro(customer_id, subscription_id)
+        logger.info("Stripe checkout completed: user=%s, customer=%s, subscription=%s",
+                     user_id, customer_id, subscription_id)
     elif event_type == "customer.subscription.deleted":
         customer_id = data.get("customer")
         if customer_id:
             await downgrade_user_to_free(customer_id)
+        logger.info("Stripe subscription deleted: customer=%s", customer_id)
 
     return {"received": True}
 
@@ -91,6 +102,7 @@ async def stripe_webhook(request: Request):
 @router.get("/status")
 async def get_billing_status(user_id: str = Depends(get_current_user)):
     plan = await get_user_plan(user_id)
+    logger.debug("Billing status check: user=%s, plan=%s", user_id, plan)
     return {"plan": plan, "is_pro": plan == "pro"}
 
 
@@ -100,7 +112,9 @@ async def cancel_subscription(user_id: str = Depends(get_current_user)):
     user = await get_or_create_user(user_id)
     subscription_id = user.get("stripe_subscription_id")
     if not subscription_id:
+        logger.warning("Cancel subscription aborted: no active subscription for user=%s", user_id)
         raise HTTPException(status_code=400, detail="No active subscription found")
 
     stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+    logger.info("Subscription cancelled: user=%s, subscription=%s", user_id, subscription_id)
     return {"cancelled": True, "message": "Subscription will end at period end"}

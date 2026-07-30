@@ -12,8 +12,6 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ defa
 const ResultsPage = lazy(() => import('./pages/ResultsPage').then((m) => ({ default: m.ResultsPage })));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const SignUpPage = lazy(() => import('./pages/SignUpPage'));
-const PricingPage = lazy(() => import('./pages/PricingPage'));
-const UpgradeSuccessPage = lazy(() => import('./pages/UpgradeSuccessPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
 
 function LoadingFallback() {
@@ -63,14 +61,6 @@ export function App() {
         {/* Public routes */}
         <Route path="/sign-in/*" element={<SignInPage />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
-        <Route
-          path="/pricing"
-          element={
-            <Suspense fallback={<LoadingFallback />}>
-              <PricingPage />
-            </Suspense>
-          }
-        />
 
         {/* Protected routes */}
         <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
@@ -90,16 +80,6 @@ export function App() {
             <ProtectedRoute>
               <Suspense fallback={<LoadingFallback />}>
                 <HistoryPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/upgrade/success"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingFallback />}>
-                <UpgradeSuccessPage />
               </Suspense>
             </ProtectedRoute>
           }
@@ -148,9 +128,6 @@ function AuthNav() {
 
   return (
     <div className="flex items-center gap-4">
-      <Link to="/pricing" className="text-sm text-textSecondary transition hover:text-primary">
-        Pricing
-      </Link>
       <Link to="/dashboard" className="text-sm text-textSecondary transition hover:text-primary">
         Dashboard
       </Link>

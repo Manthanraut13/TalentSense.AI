@@ -1,5 +1,9 @@
+import logging
+
 import resend
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 resend.api_key = settings.RESEND_API_KEY
 
@@ -13,10 +17,10 @@ def _send(to: str, subject: str, html: str):
             "subject": subject,
             "html": html,
         })
+        logger.info("Email sent: to=%s, subject=%s", to, subject)
     except Exception as e:
         # Email failure should NEVER crash the main request
-        from app.core.logger import logger
-        logger.error("Email send failed: {}", str(e))
+        logger.error("Email send failed: to=%s, subject=%s, error=%s", to, subject, e)
 
 
 async def send_welcome_email(to: str, first_name: str):
@@ -34,7 +38,7 @@ async def send_welcome_email(to: str, first_name: str):
         Start Analyzing →
       </a>
       <p style="color:#aaa;font-size:12px;margin-top:32px">
-        You have 5 free analyses per day. <a href="{settings.APP_URL}/pricing" style="color:#10B981">Upgrade to Pro</a> for unlimited access.
+        All features are free with no limits. <a href="{settings.APP_URL}" style="color:#10B981">Start analyzing now.</a>
       </p>
     </div>
     """

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +8,6 @@ import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle, Loader2 } f
 import { HistorySidebar } from '../components/HistorySidebar';
 import { analyzeResume } from '../lib/api';
 import { useAuth } from '@clerk/clerk-react';
-import { useUsage } from '../hooks/useUsage';
 import { validateResumeText, validateJD, validatePDFFile } from '../lib/validators';
 
 
@@ -18,8 +17,6 @@ export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isSignedIn, userId } = useAuth();
-  const { data: usage } = useUsage();
-  const isAtLimit = usage && !usage.is_pro && usage.remaining === 0;
 
   const [jdMode, setJdMode] = useState<'paste' | 'url'>('paste');
   const [jdUrl, setJdUrl] = useState('');
@@ -42,12 +39,14 @@ export function HomePage() {
   const analyzeMutation = useMutation({
     mutationFn: analyzeResume,
     onSuccess: (result) => {
+      console.debug('[HomePage] Analysis successful', { id: result.analysis_id, title: result.job_title, score: result.scores.overall });
       window.sessionStorage.setItem(`analysis:${result.analysis_id}`, JSON.stringify(result));
       queryClient.invalidateQueries({ queryKey: ['history', userId] });
       queryClient.invalidateQueries({ queryKey: ['usage'] });
       navigate(`/results/${result.analysis_id}`);
     },
     onError: (caught: unknown) => {
+      console.error('[HomePage] Analysis failed', caught);
       const detail =
         typeof caught === 'object' &&
         caught !== null &&
@@ -73,14 +72,17 @@ export function HomePage() {
 
   const scrapeMutation = useMutation({
     mutationFn: async (url: string) => {
-      const { data } = await api.post('/api/scrape-jd', { url });
+      console.debug('[HomePage] Scraping JD from URL:', url);
+      const { data } = await api.post('/scrape-jd', { url });
       return data;
     },
     onSuccess: (data) => {
+      console.debug('[HomePage] JD scrape successful', { chars: data.character_count, source: data.source });
       setJdText(data.job_description);
       setJdError('');
     },
     onError: (e: unknown) => {
+      console.warn('[HomePage] JD scrape failed', e);
       if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response) {
         const msg = (e.response as { data?: { detail?: string; message?: string } }).data?.detail || (e.response as { data?: { detail?: string; message?: string } }).data?.message || 'Failed to fetch job description';
         setJdError(msg);
@@ -116,23 +118,10 @@ export function HomePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    if (!jdText || jdText.trim().length < 100) {
-      setError('Job description is too short (minimum 100 characters)');
-      errorRef.current?.focus();
-      setIsSubmitting(false);
-      return;
-    }
+    console.debug('[HomePage] Submit started', { inputMode, jdLength: jdText.length });
 
     if (!isSignedIn) {
       navigate('/sign-in');
-      return;
-    }
-
-    if (isAtLimit) {
-      setError('Daily analysis limit reached. Upgrade to Pro for unlimited analyses.');
-      errorRef.current?.focus();
-      setIsSubmitting(false);
       return;
     }
 
@@ -281,7 +270,7 @@ try {
                     onClick={() => setJdMode('url')}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm transition-colors ${
                       jdMode === 'url' ? 'bg-primary text-white' : 'text-textSecondary'
-                    } ${!usage?.is_pro ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
                     URL
                   </button>
@@ -298,23 +287,16 @@ try {
                   />
                 ) : (
                   <div className="space-y-3">
-                    {!usage?.is_pro && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-sm text-amber-400">
-                        URL scraping is a Pro feature.{' '}
-                        <Link to="/pricing" className="underline">Upgrade →</Link>
-                      </div>
-                    )}
                     <input
                       type="url"
                       value={jdUrl}
                       onChange={(e) => setJdUrl(e.target.value)}
                       placeholder="https://linkedin.com/jobs/view/..."
-                      disabled={!usage?.is_pro}
-                      className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary disabled:opacity-50"
+                      className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
                     />
                     <button
                       onClick={() => scrapeMutation.mutate(jdUrl)}
-                      disabled={!usage?.is_pro || !jdUrl || scrapeMutation.isPending}
+                      disabled={!jdUrl || scrapeMutation.isPending}
                       className="w-full bg-secondary text-black font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {scrapeMutation.isPending && <Loader2 size={14} className="animate-spin" />}
@@ -349,12 +331,6 @@ try {
               </div>
             ) : null}
 
-            {isAtLimit && !error && !resumeError && !jdError && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                Daily limit reached. <a href="/pricing" className="text-primary underline">Upgrade to Pro</a> for unlimited analyses.
-              </div>
-            )}
-
             {showColdStartWarning && !error && !resumeError && !jdError && (
               <div className="rounded-lg border border-secondary/30 bg-secondary/10 p-4 text-sm text-secondary flex items-center gap-2" role="status" aria-live="polite">
                 <AlertTriangle size={18} />
@@ -364,11 +340,11 @@ try {
 
             <button
               type="submit"
-              disabled={isAtLimit || isSubmitting}
-              className={`inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${isAtLimit || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isSubmitting}
+              className={`inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Zap size={18} aria-hidden="true" />
-              {isAtLimit ? 'Daily Limit Reached' : isSubmitting ? 'Analyzing...' : 'Analyze Now'}
+              {isSubmitting ? 'Analyzing...' : 'Analyze Now'}
             </button>
           </form>
         </div>

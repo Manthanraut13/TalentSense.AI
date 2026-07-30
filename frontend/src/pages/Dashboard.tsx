@@ -17,7 +17,11 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: any; label: string;
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useDashboard();
+  const { data: stats, isLoading, error } = useDashboard();
+
+  if (error) {
+    console.error('[Dashboard] Failed to load stats', error);
+  }
 
   if (isLoading) {
     return (
@@ -28,6 +32,7 @@ export default function Dashboard() {
   }
 
   if (!stats || stats.total_analyses === 0) {
+    console.debug('[Dashboard] No stats data available');
     return (
       <div className="min-h-screen bg-base flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -45,10 +50,11 @@ export default function Dashboard() {
     job: item.job_title,
   }));
 
-  return (
-    <div className="min-h-screen bg-base p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <h1 className="text-2xl font-bold text-textPrimary">Your Progress Dashboard</h1>
+    return (
+      <div className="min-h-screen bg-base p-8">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <h1 className="text-2xl font-bold text-textPrimary">Your Progress Dashboard</h1>
+          {console.debug('[Dashboard] Rendering with stats', { total: stats.total_analyses, scores: { avg: stats.avg_overall, best: stats.best_score, worst: stats.worst_score } })}
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

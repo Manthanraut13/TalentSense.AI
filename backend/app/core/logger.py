@@ -1,18 +1,48 @@
-from loguru import logger
+import logging
 import sys
+import uuid
+from contextvars import ContextVar
 
-logger.remove()
-logger.add(
-    sys.stdout,
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} — {message}",
-    level="INFO",
-    colorize=True,
-)
+_request_id: ContextVar[str] = ContextVar("request_id", default="")
 
-# Separate error file for production debugging
-logger.add(
-    "logs/errors.log",
-    level="ERROR",
-    rotation="10 MB",
-    retention="7 days",
-)
+
+def get_request_id() -> str:
+    return _request_id.get()
+
+
+def set_request_id(request_id: str | None = None) -> str:
+    rid = request_id or uuid.uuid4().hex[:12]
+    _request_id.set(rid)
+    return rid
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = get_request_id() or "-"
+        return True
+
+
+def setup_logging() -> None:
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(
+        logging.Formatter(
+            "[%(asctime)s] %(levelname)-7s req=%(request_id)-12s %(name)s:%(funcName)s:%(lineno)d — %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    handler.addFilter(RequestIDFilter())
+    root.handlers.clear()
+    root.addHandler(handler)
+
+    # Suppress noisy libs
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("pymongo").setLevel(logging.WARNING)
+    logging.getLogger("fitz").setLevel(logging.WARNING)

@@ -1,11 +1,13 @@
+import logging
+
 from fastapi import Header, HTTPException, status
 from jose import jwt, JWTError
 import httpx
-from loguru import logger
-from jose import jwt
 from datetime import datetime, timezone
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Cache Clerk's public keys (they don't change often)
 _clerk_jwks = None
@@ -37,7 +39,7 @@ async def get_clerk_jwks() -> dict:
             return _clerk_jwks  # serve stale cache
         raise
     except Exception as e:
-        logger.error("Clerk JWKS fetch failed: {}", e)
+        logger.error("Clerk JWKS fetch failed: %s", e)
         if _clerk_jwks is not None:
             return _clerk_jwks  # serve stale cache
         raise
@@ -52,8 +54,8 @@ async def get_current_user(authorization: str = Header(...)) -> str:
     Raises 401 if token is invalid or missing.
     """
     # Test mode: bypass auth with a test user
-    print(f"DEBUG: test_mode = {settings.test_mode}")
     if settings.test_mode:
+        logger.info("test_mode active — returning test_user_123")
         return "test_user_123"
 
     if not authorization.startswith("Bearer "):
@@ -76,15 +78,15 @@ async def get_current_user(authorization: str = Header(...)) -> str:
         if not public_key:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to find matching public key")
 
-        logger.info(f"Token: {token[:30]}...")
-        logger.info(f"Header: {unverified_header}")
+        logger.info("Token: %s...", token[:30])
+        logger.info("Header: %s", unverified_header)
 
         claims = jwt.get_unverified_claims(token)
 
-        print("Current UTC :", datetime.now(timezone.utc))
-        print("iat :", datetime.fromtimestamp(claims["iat"], timezone.utc))
-        print("nbf :", datetime.fromtimestamp(claims["nbf"], timezone.utc))
-        print("exp :", datetime.fromtimestamp(claims["exp"], timezone.utc))
+        logger.debug("Token iat=%s nbf=%s exp=%s",
+                      datetime.fromtimestamp(claims["iat"], timezone.utc),
+                      datetime.fromtimestamp(claims["nbf"], timezone.utc),
+                      datetime.fromtimestamp(claims["exp"], timezone.utc))
 
         # Decode and verify the token
         key = jwks.get("keys")[0]  # Use first key for RS256
@@ -98,7 +100,7 @@ async def get_current_user(authorization: str = Header(...)) -> str:
             },
         )
 
-        logger.info(f"Payload: {payload}")
+        logger.info("Payload: %s", payload)
 
         user_id: str = payload.get("sub")
         if not user_id:

@@ -12,11 +12,19 @@ export function HistoryPage() {
 
   const { data: history, isLoading, error } = useQuery({
     queryKey: ['history', userId],
-    queryFn: () => fetchHistory(),
+    queryFn: () => {
+      console.debug('[HistoryPage] Fetching history');
+      return fetchHistory();
+    },
     enabled: isLoaded && !!userId,
   });
 
+  if (error) {
+    console.error('[HistoryPage] Failed to load history', error);
+  }
+
   function handleDelete() {
+    console.debug('[HistoryPage] History invalidated after delete');
     queryClient.invalidateQueries({ queryKey: ['history', userId] });
   }
 

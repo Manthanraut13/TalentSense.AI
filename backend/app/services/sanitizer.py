@@ -1,7 +1,10 @@
+import logging
 import re
 import bleach
 import magic
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 # Character limits
 MAX_RESUME_CHARS = 8_000
@@ -27,31 +30,28 @@ INJECTION_PATTERNS = [
 
 def sanitize_text(text: str, max_chars: int, field_name: str = "Input") -> str:
     """Clean and validate user-provided text. Raises HTTPException 400 if injection detected."""
-    import logging
-    logger = logging.getLogger(__name__)
-
-    logger.info(f"sanitize_text: field={field_name}, input_len={len(text) if text else 0}, input_start={text[:50] if text else None!r}")
+    logger.info("Sanitize: field=%s, input_len=%d", field_name, len(text) if text else 0)
 
     if not text or not text.strip():
-        logger.warning(f"sanitize_text: {field_name} - empty or whitespace only")
+        logger.warning("Sanitize: %s is empty or whitespace only", field_name)
         raise HTTPException(status_code=422, detail=f"{field_name} cannot be empty")
 
     # 1. Strip HTML tags
     original_len = len(text)
     text = bleach.clean(text, tags=[], strip=True)
     if len(text) != original_len:
-        logger.info(f"sanitize_text: HTML stripped, len {original_len} -> {len(text)}")
+        logger.info("Sanitize: HTML stripped, len %d -> %d", original_len, len(text))
 
     # 2. Truncate to max length
     if len(text) > max_chars:
-        logger.info(f"sanitize_text: truncating from {len(text)} to {max_chars}")
+        logger.info("Sanitize: truncating from %d to %d", len(text), max_chars)
         text = text[:max_chars]
 
     # 3. Check for prompt injection
     text_lower = text.lower()
     for pattern in INJECTION_PATTERNS:
         if re.search(pattern, text_lower, re.IGNORECASE):
-            logger.warning(f"sanitize_text: Injection pattern matched: {pattern}")
+            logger.warning("Sanitize: Injection pattern matched: %s in field=%s", pattern, field_name)
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -60,30 +60,33 @@ def sanitize_text(text: str, max_chars: int, field_name: str = "Input") -> str:
                 )
             )
 
-    logger.info(f"sanitize_text: final_len={len(text)}, final_start={text[:50]!r}")
+    logger.info("Sanitize: final_len=%d", len(text))
     return text.strip()
 
 
 def validate_pdf_bytes(pdf_bytes: bytes, filename: str = "file") -> None:
     """Validate that uploaded bytes are actually a PDF and within size limits."""
-    # 1. Check file size
     if len(pdf_bytes) > MAX_PDF_BYTES:
+        logger.warning("PDF size exceeded: filename=%s, size=%d, max=%d",
+                        filename, len(pdf_bytes), MAX_PDF_BYTES)
         raise HTTPException(
             status_code=400,
             detail=f"PDF file too large. Maximum size is {MAX_PDF_SIZE_MB}MB."
         )
 
-    # 2. Check MIME type using libmagic
     mime = magic.from_buffer(pdf_bytes, mime=True)
     if mime != "application/pdf":
+        logger.warning("Invalid PDF MIME type: filename=%s, mime=%s", filename, mime)
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type: {mime}. Only PDF files are accepted."
         )
 
-    # 3. Check PDF magic bytes header
     if not pdf_bytes.startswith(b"%PDF"):
+        logger.warning("Missing PDF magic bytes: filename=%s", filename)
         raise HTTPException(
             status_code=400,
             detail="File does not appear to be a valid PDF."
         )
+
+    logger.debug("PDF validated: filename=%s, size=%d", filename, len(pdf_bytes))

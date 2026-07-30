@@ -3,6 +3,23 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, DashboardStats, HistoryListResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+function logRequest(method: string | undefined, url: string | undefined, payload?: unknown) {
+  console.debug(`[API] → ${method?.toUpperCase()} ${url}`, payload ? payload : '');
+}
+
+function logResponse(method: string | undefined, url: string | undefined, status: number | undefined, data?: unknown) {
+  if (status && status >= 400) {
+    console.warn(`[API] ← ${method?.toUpperCase()} ${url} ${status}`, data || '');
+  } else {
+    console.debug(`[API] ← ${method?.toUpperCase()} ${url} ${status}`);
+  }
+}
+
+function logError(method: string | undefined, url: string | undefined, error: unknown) {
+  console.error(`[API] ✗ ${method?.toUpperCase()} ${url}`, error);
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 180000,
@@ -30,15 +47,20 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`);
   }
+  logRequest(config.method, config.url, config.data);
   return config;
 });
 
 // Response interceptor – retry once on 401 with fresh token
 let isRefreshing = false;
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    logResponse(res.config.method, res.config.url, res.status, res.data);
+    return res;
+  },
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    logError(original?.method, original?.url, error.response?.status || error.message);
 
     if (error.response?.status === 401 && !original._retry && getTokenFn && !isRefreshing) {
       original._retry = true;
@@ -47,6 +69,7 @@ api.interceptors.response.use(
         const fresh = await getCurrentToken();
         if (fresh) {
           original.headers.set('Authorization', `Bearer ${fresh}`);
+          console.debug('[API] Retrying after token refresh');
           return api(original);
         }
       } finally {

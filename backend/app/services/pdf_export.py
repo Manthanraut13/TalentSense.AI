@@ -1,8 +1,11 @@
+import logging
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import io
 import sys
 import platform
+
+logger = logging.getLogger(__name__)
 
 # Try to import WeasyPrint for Linux/Render, fallback to fpdf2 on Windows
 try:
@@ -95,9 +98,10 @@ def generate_analysis_pdf(analysis: dict) -> bytes:
         try:
             from weasyprint import HTML
             pdf_bytes = HTML(string=html_content).write_pdf()
+            logger.debug("PDF generated with WeasyPrint: %d bytes", len(pdf_bytes))
             return pdf_bytes
-        except Exception:
-            pass  # Fall through to fpdf2
+        except Exception as e:
+            logger.warning("WeasyPrint PDF generation failed, falling back to fpdf2: %s", e)
 
     # Fallback to fpdf2
     return _generate_pdf_with_fpdf2(html_content)

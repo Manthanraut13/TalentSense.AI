@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -7,14 +9,18 @@ from app.services.user_service import get_or_create_user
 import json
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/webhooks/clerk", include_in_schema=False)
 async def clerk_webhook(request: Request):
     """Handle Clerk webhook events (user.created)."""
     # In production, verify Clerk webhook signature here
     body = await request.json()
+    event_type = body.get("type")
 
-    if body.get("type") == "user.created":
+    logger.info("Clerk webhook received: type=%s", event_type)
+
+    if event_type == "user.created":
         data = body.get("data", {})
         user_id = data.get("id")
         email = data.get("email_addresses", [{}])[0].get("email_address", "")
@@ -22,5 +28,8 @@ async def clerk_webhook(request: Request):
 
         await get_or_create_user(user_id, email)
         await send_welcome_email(email, first_name)
+        logger.info("Clerk user created: user_id=%s, email=%s", user_id, email)
+    else:
+        logger.debug("Clerk webhook unhandled type: %s", event_type)
 
     return {"received": True}

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from app.services.mongo_service import mongo_service
+
+logger = logging.getLogger(__name__)
 
 
 def _users_collection():
@@ -15,6 +18,7 @@ def _users_collection():
 async def get_or_create_user(user_id: str, email: str = "") -> dict:
     collection = _users_collection()
     if collection is None:
+        logger.warning("MongoDB not available — returning in-memory user for %s", user_id)
         return {
             "user_id": user_id,
             "email": email,
@@ -25,6 +29,7 @@ async def get_or_create_user(user_id: str, email: str = "") -> dict:
 
     user = await collection.find_one({"user_id": user_id}, {"_id": 0})
     if user:
+        logger.debug("User found: user_id=%s, plan=%s", user_id, user.get("plan"))
         return user
 
     user = {
@@ -37,43 +42,52 @@ async def get_or_create_user(user_id: str, email: str = "") -> dict:
     }
     await collection.insert_one(user)
     user.pop("_id", None)
+    logger.info("User created: user_id=%s, email=%s", user_id, email)
     return user
 
 
 async def get_user_plan(user_id: str) -> str:
     collection = _users_collection()
     if collection is None:
+        logger.debug("MongoDB not available — defaulting plan to free for %s", user_id)
         return "free"
 
     user = await collection.find_one({"user_id": user_id}, {"plan": 1})
-    return user.get("plan", "free") if user else "free"
+    plan = user.get("plan", "free") if user else "free"
+    logger.debug("Plan check: user_id=%s, plan=%s", user_id, plan)
+    return plan
 
 
 async def upgrade_user_to_pro(stripe_customer_id: str, subscription_id: str | None) -> None:
     collection = _users_collection()
     if collection is None:
+        logger.warning("Cannot upgrade: MongoDB not available, customer=%s", stripe_customer_id)
         return
 
     await collection.update_one(
         {"stripe_customer_id": stripe_customer_id},
         {"$set": {"plan": "pro", "stripe_subscription_id": subscription_id}},
     )
+    logger.info("User upgraded to pro: customer=%s, subscription=%s", stripe_customer_id, subscription_id)
 
 
 async def downgrade_user_to_free(stripe_customer_id: str) -> None:
     collection = _users_collection()
     if collection is None:
+        logger.warning("Cannot downgrade: MongoDB not available, customer=%s", stripe_customer_id)
         return
 
     await collection.update_one(
         {"stripe_customer_id": stripe_customer_id},
         {"$set": {"plan": "free", "stripe_subscription_id": None}},
     )
+    logger.info("User downgraded to free: customer=%s", stripe_customer_id)
 
 
 async def set_stripe_customer_id(user_id: str, customer_id: str) -> None:
     collection = _users_collection()
     if collection is None:
+        logger.warning("Cannot set stripe customer: MongoDB not available, user=%s", user_id)
         return
 
     await collection.update_one(
@@ -81,3 +95,4 @@ async def set_stripe_customer_id(user_id: str, customer_id: str) -> None:
         {"$set": {"stripe_customer_id": customer_id}},
         upsert=True,
     )
+    logger.info("Stripe customer set: user=%s, customer=%s", user_id, customer_id)

@@ -1,7 +1,6 @@
 // Client-side input validation constants
 export const RESUME_MIN_CHARS = 200;
 export const RESUME_MAX_CHARS = 8000;
-export const JD_MIN_CHARS = 100;
 export const JD_MAX_CHARS = 4000;
 export const MAX_PDF_SIZE_MB = 5;
 
@@ -42,9 +41,6 @@ export function validateResumeText(text: string): string | null {
 
 export function validateJD(text: string): string | null {
   if (!text.trim()) return "Job description cannot be empty";
-  if (text.length < JD_MIN_CHARS) {
-    return `Too short (${text.length}/${JD_MIN_CHARS} characters minimum)`;
-  }
   return null;
 }
 
