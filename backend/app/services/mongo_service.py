@@ -71,6 +71,10 @@ class MongoService:
             expireAfterSeconds=172800,  # Auto-delete docs after 2 days
         )
 
+        # Learning plan cache - unique per skill
+        learning_plans = collection.database.learning_plans
+        await learning_plans.create_index("skill", unique=True)
+
         self._indexes_ready = True
 
     async def save_analysis(
@@ -163,3 +167,11 @@ class MongoService:
 
 
 mongo_service = MongoService()
+
+
+def learning_plans_collection():
+    """Return the learning_plans collection, or None if MongoDB is unavailable."""
+    collection = mongo_service._get_collection()
+    if collection is None:
+        return None
+    return collection.database.learning_plans

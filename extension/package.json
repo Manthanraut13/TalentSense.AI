@@ -1,0 +1,40 @@
+{
+  "name": "resume-analyzer-extension",
+  "displayName": "Resume Analyzer",
+  "version": "1.0.0",
+  "description": "Instantly analyze any job against your resume",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo package"
+  },
+  "dependencies": {
+    "@plasmohq/storage": "^1.14.0",
+    "axios": "^1.7.2",
+    "plasmo": "^0.90.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/node": "^26.1.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.2"
+  },
+  "manifest": {
+    "name": "Resume Analyzer",
+    "description": "Instantly analyze any job against your resume",
+    "permissions": [
+      "storage",
+      "activeTab",
+      "sidePanel"
+    ],
+    "host_permissions": [
+      "https://www.linkedin.com/*",
+      "https://www.indeed.com/*",
+      "https://www.naukri.com/*",
+      "http://localhost:8000/*"
+    ]
+  }
+}

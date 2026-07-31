@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analysis, billing, history, scrape, resumes
+from app.api.routes import analysis, billing, compare, history, learning, scrape, resumes
 from app.core.config import settings
 from app.core.logger import setup_logging, set_request_id
 from app.core.monitoring import init_sentry
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
+        allow_origin_regex=r"chrome-extension://.*",
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Session-ID", "Authorization"],
@@ -51,6 +52,8 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(scrape.router)
     app.include_router(resumes.router)
+    app.include_router(compare.router)
+    app.include_router(learning.router)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

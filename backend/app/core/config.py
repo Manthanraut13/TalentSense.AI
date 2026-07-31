@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     test_mode: bool = False
     # Sentry
     sentry_dsn: str = ""
+    # Tavily web search (learning roadmap resource discovery)
+    tavily_api_key: str = ""
 
 
     @cached_property

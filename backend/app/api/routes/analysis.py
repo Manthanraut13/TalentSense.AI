@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from datetime import datetime, timezone
 import logging
@@ -8,19 +9,48 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Resp
 
 from app.api.deps import get_current_user
 from app.models.response import AnalysisResult
+from app.services.ats_simulator import ATSResult, run_ats_simulation
 from app.services.chain import AnalysisServiceUnavailable, analyze as analyze_fn
 from app.services.mongo_service import mongo_service
 from app.services.parser import parse_pdf_upload, validate_resume_text
 from app.services.qdrant_service import qdrant_service
+from app.services.rate_limit_service import check_rate_limit, increment_usage
 from app.services.sanitizer import sanitize_text, validate_pdf_bytes, MAX_RESUME_CHARS, MAX_JD_CHARS
 
 
 router = APIRouter(tags=["analysis"])
 logger = logging.getLogger(__name__)
 
+_EMPTY_ATS_RESULT = ATSResult(
+    ats_score=0,
+    keyword_hits=[],
+    keyword_misses=[],
+    experience_required=None,
+    experience_match=None,
+    education_required=None,
+    education_match=None,
+    checks_passed=0,
+    checks_total=0,
+    details=[],
+)
 
-async def check_daily_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
-    request.state.rate_limit_info = {"limit": -1, "used": 0, "remaining": -1}
+
+async def enforce_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
+    """Check the user's daily limit BEFORE any expensive processing. Raises 429 when exceeded."""
+    rate_status = await check_rate_limit(user_id, is_pro=False)
+    if not rate_status["allowed"]:
+        logger.warning("Rate limit exceeded: user=%s, used=%s/%s",
+                       user_id, rate_status["used"], rate_status["limit"])
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": "Daily analysis limit reached. Please try again tomorrow.",
+                "used": rate_status["used"],
+                "limit": rate_status["limit"],
+                "resets": "midnight UTC",
+            },
+        )
+    request.state.rate_limit_info = rate_status
     return user_id
 
 
@@ -28,7 +58,7 @@ async def check_daily_rate_limit(request: Request, user_id: str = Depends(get_cu
 async def analyze_resume(
     request: Request,
     response: Response,
-    user_id: str = Depends(check_daily_rate_limit),
+    user_id: str = Depends(enforce_rate_limit),
     input_mode: str = Form(...),
     job_description: str = Form(...),
     resume_text: str | None = Form(default=None),
@@ -87,12 +117,17 @@ async def analyze_resume(
             detail='input_mode must be either "text" or "pdf"',
         )
 
+    ats_task = asyncio.create_task(
+        asyncio.to_thread(run_ats_simulation, parsed_resume.text, job_description)
+    )
+
     try:
         logger.info("Retrieving Qdrant context for user=%s", user_id)
         past_context = await qdrant_service.retrieve_context(
             user_id=user_id,
             job_description=job_description,
         )
+
         logger.info("Calling Groq analysis LLM")
         ai_result = await analyze_fn(
             parsed_resume=parsed_resume,
@@ -100,11 +135,21 @@ async def analyze_resume(
             past_context=past_context,
         )
     except AnalysisServiceUnavailable as exc:
+        ats_task.cancel()
         logger.error("Analysis failed: service unavailable — %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+    except Exception:
+        ats_task.cancel()
+        raise
+
+    try:
+        ats_result = await ats_task
+    except Exception as exc:
+        logger.warning("ATS simulation failed: %s", exc)
+        ats_result = _EMPTY_ATS_RESULT
 
     result = AnalysisResult(
         analysis_id=str(uuid4()),
@@ -116,6 +161,12 @@ async def analyze_resume(
         strengths=ai_result.strengths,
         improvement_tips=ai_result.improvement_tips,
         context_note=ai_result.context_note or f"User {user_id} analyzed without prior context.",
+        ats_score=ats_result.ats_score,
+        ats_keyword_hits=ats_result.keyword_hits,
+        ats_keyword_misses=ats_result.keyword_misses,
+        ats_checks=ats_result.details,
+        ats_checks_passed=ats_result.checks_passed,
+        ats_checks_total=ats_result.checks_total,
     )
 
     logger.info("LLM analysis complete: title=%s, overall_score=%d", result.job_title, result.scores.overall)
@@ -140,10 +191,17 @@ async def analyze_resume(
         else:
             result.context_note = "History was not saved."
 
+    # Count the analysis against the daily limit AFTER success
+    try:
+        await increment_usage(user_id)
+    except Exception as exc:
+        logger.warning("Rate limit increment failed: %s", exc)
+
     # Rate limit headers
-    response.headers["X-RateLimit-Limit"] = "-1"
-    response.headers["X-RateLimit-Remaining"] = "-1"
-    response.headers["X-RateLimit-Used"] = "0"
+    rate_status = request.state.rate_limit_info
+    response.headers["X-RateLimit-Limit"] = str(rate_status["limit"])
+    response.headers["X-RateLimit-Remaining"] = str(rate_status["remaining"])
+    response.headers["X-RateLimit-Used"] = str(rate_status["used"])
 
     logger.info("Analysis complete: analysis_id=%s, job_title=%s, score=%d",
                  result.analysis_id, result.job_title, result.scores.overall)
@@ -152,5 +210,11 @@ async def analyze_resume(
 
 @router.get("/usage")
 async def get_usage_status(user_id: str = Depends(get_current_user)):
-    logger.debug("Usage check for user=%s", user_id)
-    return {"used": 0, "limit": -1, "remaining": -1, "is_pro": True}
+    rate_status = await check_rate_limit(user_id, is_pro=False)
+    logger.debug("Usage check for user=%s: %s", user_id, rate_status)
+    return {
+        "used": rate_status["used"],
+        "limit": rate_status["limit"],
+        "remaining": rate_status["remaining"],
+        "is_pro": False,
+    }

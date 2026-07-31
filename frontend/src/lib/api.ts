@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, DashboardStats, HistoryListResponse, UsageStatus } from '../types';
+import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -147,5 +147,27 @@ export async function createCheckoutSession(params: {
 
 export async function fetchDashboardStats() {
   const response = await api.get<DashboardStats>('/history/dashboard/stats');
+  return response.data;
+}
+
+export async function compareJobs(params: {
+  resumeText: string;
+  jobDescriptions: string[];
+}) {
+  const response = await api.post<CompareResponse>('/api/compare', {
+    resume_text: params.resumeText,
+    job_descriptions: params.jobDescriptions,
+  });
+  return response.data;
+}
+
+export async function fetchLearningPlan(params: {
+  skills: string[];
+  jobContext?: string;
+}) {
+  const response = await api.post<LearningPlanResponse>('/api/learning-plan', {
+    skills: params.skills,
+    job_context: params.jobContext ?? '',
+  });
   return response.data;
 }

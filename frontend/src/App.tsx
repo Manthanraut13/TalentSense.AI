@@ -6,6 +6,7 @@ import { lazy, Suspense } from 'react';
 import { setTokenGetter } from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
+import { ComparePage } from './pages/Compare';
 import UsageBadge from './components/UsageBadge';
 
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
@@ -64,6 +65,16 @@ export function App() {
 
         {/* Protected routes */}
         <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route
+          path="/compare"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <ComparePage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/results/:analysisId"
           element={
@@ -130,6 +141,9 @@ function AuthNav() {
     <div className="flex items-center gap-4">
       <Link to="/dashboard" className="text-sm text-textSecondary transition hover:text-primary">
         Dashboard
+      </Link>
+      <Link to="/compare" className="text-sm text-textSecondary transition hover:text-primary">
+        Compare Jobs
       </Link>
       <UsageBadge />
       <span className="text-sm text-textSecondary hidden md:block">

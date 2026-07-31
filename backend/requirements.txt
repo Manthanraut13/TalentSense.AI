@@ -14,7 +14,11 @@ python-jose[cryptography]
 httpx
 slowapi
 limits
+rapidfuzz
+langchain-tavily
+tavily-python
 bleach
+beautifulsoup4
 python-magic
 sentry-sdk[fastapi]
 loguru

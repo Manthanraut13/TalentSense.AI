@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -111,3 +112,99 @@ def format_resume_sections(parsed_resume) -> str:
 
 
 analyze_chain = type('AnalysisChain', (), {'analyze': staticmethod(analyze)})()
+
+
+def get_comparison_chain():
+    from langchain_core.output_parsers import JsonOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+    from app.core.prompts import COMPARISON_HUMAN_PROMPT, COMPARISON_SYSTEM_PROMPT
+
+    parser = JsonOutputParser()
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", COMPARISON_SYSTEM_PROMPT),
+            ("human", COMPARISON_HUMAN_PROMPT),
+        ]
+    )
+    return prompt | get_llm() | parser
+
+
+async def run_single_comparison(
+    resume_text: str,
+    job_description: str,
+    jd_number: int,
+    jd_label: str = "",
+) -> dict:
+    """Run analysis for one JD in the comparison set."""
+    chain = get_comparison_chain()
+    result = await chain.ainvoke({
+        "resume_text": resume_text,
+        "job_description": job_description,
+        "jd_number": jd_number,
+        "jd_label": jd_label or f"Job {jd_number}",
+    })
+    return result
+
+
+async def run_comparison(resume_text: str, job_descriptions: list[str]) -> list[dict]:
+    """
+    Run all JD analyses in parallel using asyncio.gather.
+    Returns list of results in same order as input JDs.
+    """
+    tasks = [
+        run_single_comparison(
+            resume_text=resume_text,
+            job_description=jd,
+            jd_number=i + 1,
+        )
+        for i, jd in enumerate(job_descriptions)
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Handle partial failures — return error dict for failed ones
+    processed = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            logger.warning("Comparison analysis failed for JD %d: %s", i + 1, result)
+            processed.append({
+                "job_title": f"Job {i + 1}",
+                "error": str(result),
+                "scores": {"overall": 0, "skills_match": 0, "experience_relevance": 0, "keyword_coverage": 0},
+                "missing_skills": [],
+                "key_strengths": [],
+                "biggest_gap": "Analysis failed",
+                "fit_summary": "Could not analyze this job description.",
+            })
+        else:
+            processed.append(result)
+    return processed
+
+
+def generate_recommendation(results: list[dict]) -> dict:
+    """
+    Pick the best JD and explain why.
+    Called after all analyses complete.
+    """
+    valid = [(i, r) for i, r in enumerate(results) if "error" not in r]
+    if not valid:
+        return {"recommended_index": 0, "reasoning": "All analyses failed."}
+
+    # Score formula: overall minus a penalty per missing skill
+    def score_fn(r: dict) -> float:
+        penalty = min(len(r.get("missing_skills", [])), 10) * 3
+        return r["scores"]["overall"] - penalty
+
+    best_idx, best = max(valid, key=lambda x: score_fn(x[1]))
+    worst_idx, worst = min(valid, key=lambda x: score_fn(x[1]))
+
+    return {
+        "recommended_index": best_idx,
+        "recommended_title": best.get("job_title", f"Job {best_idx + 1}"),
+        "reasoning": (
+            f"Strongest match at {best['scores']['overall']}% with only "
+            f"{len(best.get('missing_skills', []))} skill gaps. "
+            f"Your biggest strength here: {best.get('key_strengths', ['your experience'])[0]}."
+        ),
+        "avoid_index": worst_idx,
+        "avoid_reason": worst.get("biggest_gap", "Significant skill gaps present."),
+    }

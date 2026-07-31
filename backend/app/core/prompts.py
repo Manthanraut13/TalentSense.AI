@@ -32,3 +32,32 @@ Past context:
 {past_context}
 
 {format_instructions}"""
+
+COMPARISON_SYSTEM_PROMPT = """You are an expert career advisor comparing a resume against multiple job descriptions.
+
+Analyze the resume against each job description independently and return structured JSON.
+Be specific — use actual content from the resume and each JD.
+Return ONLY valid JSON, no preamble, no markdown fences."""
+
+COMPARISON_HUMAN_PROMPT = """
+## RESUME
+{resume_text}
+
+## JOB DESCRIPTION {jd_number}: {jd_label}
+{job_description}
+
+Return ONLY this JSON:
+{{
+  "job_title": "<extracted job title>",
+  "scores": {{
+    "overall": <0-100>,
+    "skills_match": <0-100>,
+    "experience_relevance": <0-100>,
+    "keyword_coverage": <0-100>
+  }},
+  "missing_skills": ["<skill>"],
+  "key_strengths": ["<strength 1>", "<strength 2>"],
+  "biggest_gap": "<single most critical missing thing>",
+  "fit_summary": "<2 sentence honest assessment of fit>"
+}}
+"""

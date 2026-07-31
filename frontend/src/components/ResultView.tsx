@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 
 import type { AnalysisResult } from '../types';
 import { formatDate, scoreColorClass, scoreLabel } from '../lib/format';
+import ATSScoreCard from './ATSScoreCard';
+import LearningRoadmap from './LearningRoadmap';
 
 function CircularScore({ score }: { score: number }) {
   const radius = 60;
@@ -82,6 +84,23 @@ export function ResultView({ result }: { result: AnalysisResult }) {
         <ListCard icon={<Key size={18} aria-hidden="true" />} title="ATS Keywords" tone="amber" items={result.ats_keywords} />
         <ListCard icon={<CheckCircle2 size={18} aria-hidden="true" />} title="Resume Strengths" tone="green" items={result.strengths} />
         <ListCard icon={<Lightbulb size={18} aria-hidden="true" />} title="Improvement Tips" tone="amber" items={result.improvement_tips} />
+      </section>
+
+      {result.ats_score !== undefined && result.ats_score !== null ? (
+        <section aria-label="ATS simulation">
+          <ATSScoreCard
+            atsScore={result.ats_score}
+            keywordHits={result.ats_keyword_hits || []}
+            keywordMisses={result.ats_keyword_misses || []}
+            checks={result.ats_checks || []}
+            checksPassed={result.ats_checks_passed || 0}
+            checksTotal={result.ats_checks_total || 0}
+          />
+        </section>
+      ) : null}
+
+      <section aria-label="Learning roadmap">
+        <LearningRoadmap missingSkills={result.missing_skills} jobContext={result.job_title} />
       </section>
 
       {result.context_note ? (

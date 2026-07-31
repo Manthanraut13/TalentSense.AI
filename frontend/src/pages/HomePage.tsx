@@ -47,6 +47,7 @@ export function HomePage() {
     },
     onError: (caught: unknown) => {
       console.error('[HomePage] Analysis failed', caught);
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
       const detail =
         typeof caught === 'object' &&
         caught !== null &&

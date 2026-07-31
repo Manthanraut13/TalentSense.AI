@@ -30,6 +30,13 @@ class AnalysisResult(BaseModel):
     strengths: list[str]
     improvement_tips: list[str]
     context_note: str | None = None
+    # ATS Simulator fields (rules-based, not AI)
+    ats_score: int | None = None
+    ats_keyword_hits: list[str] = []
+    ats_keyword_misses: list[str] = []
+    ats_checks: list[dict] = []
+    ats_checks_passed: int = 0
+    ats_checks_total: int = 0
 
 
 class HistoryItem(BaseModel):

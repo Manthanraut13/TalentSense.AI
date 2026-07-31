@@ -40,7 +40,7 @@ export function HistoryPage() {
         </Link>
       </div>
 
-      {error ? <div className="rounded-lg border border-line bg-surface p-5 text-textSecondary">{error}</div> : null}
+      {error ? <div className="rounded-lg border border-line bg-surface p-5 text-textSecondary">{error.message}</div> : null}
 
       {history && history.analyses.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface p-8 text-center text-textSecondary">

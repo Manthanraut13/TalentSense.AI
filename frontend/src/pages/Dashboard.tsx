@@ -54,7 +54,6 @@ export default function Dashboard() {
       <div className="min-h-screen bg-base p-8">
         <div className="max-w-6xl mx-auto space-y-8">
           <h1 className="text-2xl font-bold text-textPrimary">Your Progress Dashboard</h1>
-          {console.debug('[Dashboard] Rendering with stats', { total: stats.total_analyses, scores: { avg: stats.avg_overall, best: stats.best_score, worst: stats.worst_score } })}
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
