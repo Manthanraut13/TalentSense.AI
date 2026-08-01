@@ -22,6 +22,7 @@ export function HomePage() {
   const [jdUrl, setJdUrl] = useState('');
   const [jdText, setJdText] = useState('');
   const [jdError, setJdError] = useState('');
+  const [jdSuccess, setJdSuccess] = useState('');
 
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -81,9 +82,11 @@ export function HomePage() {
       console.debug('[HomePage] JD scrape successful', { chars: data.character_count, source: data.source });
       setJdText(data.job_description);
       setJdError('');
+      setJdSuccess('Job description fetched successfully from the URL.');
     },
     onError: (e: unknown) => {
       console.warn('[HomePage] JD scrape failed', e);
+      setJdSuccess('');
       if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response) {
         const msg = (e.response as { data?: { detail?: string; message?: string } }).data?.detail || (e.response as { data?: { detail?: string; message?: string } }).data?.message || 'Failed to fetch job description';
         setJdError(msg);
@@ -129,7 +132,7 @@ export function HomePage() {
 try {
         const jdError = validateJD(jdText);
         if (jdError) {
-          setError(jdError);
+          setError(jdMode === 'url' ? 'Fetch the job description from the URL before analyzing.' : jdError);
           setIsSubmitting(false);
           return;
         }
@@ -259,7 +262,7 @@ try {
                 <div className="flex gap-2 mt-2 items-center">
                   <button
                     type="button"
-                    onClick={() => setJdMode('paste')}
+                    onClick={() => { setJdMode('paste'); setJdSuccess(''); }}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm transition-colors ${
                       jdMode === 'paste' ? 'bg-primary text-white' : 'text-textSecondary'
                     }`}
@@ -268,7 +271,7 @@ try {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setJdMode('url')}
+                    onClick={() => { setJdMode('url'); setJdSuccess(''); }}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm transition-colors ${
                       jdMode === 'url' ? 'bg-primary text-white' : 'text-textSecondary'
                     }`}
@@ -280,7 +283,7 @@ try {
                 {jdMode === 'paste' ? (
                   <textarea
                     value={jdText}
-                    onChange={(e) => setJdText(e.target.value)}
+                    onChange={(e) => { setJdText(e.target.value); setJdSuccess(''); }}
                     className="mt-4 min-h-[336px] w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
                     placeholder="Paste the full job description here..."
                     required
@@ -291,7 +294,7 @@ try {
                     <input
                       type="url"
                       value={jdUrl}
-                      onChange={(e) => setJdUrl(e.target.value)}
+                      onChange={(e) => { setJdUrl(e.target.value); setJdSuccess(''); }}
                       placeholder="https://linkedin.com/jobs/view/..."
                       className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
                     />
@@ -332,6 +335,16 @@ try {
               </div>
             ) : null}
 
+            {jdSuccess ? (
+              <div
+                className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary"
+                role="status"
+                aria-live="polite"
+              >
+                {jdSuccess}
+              </div>
+            ) : null}
+
             {showColdStartWarning && !error && !resumeError && !jdError && (
               <div className="rounded-lg border border-secondary/30 bg-secondary/10 p-4 text-sm text-secondary flex items-center gap-2" role="status" aria-live="polite">
                 <AlertTriangle size={18} />
@@ -341,7 +354,7 @@ try {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (jdMode === 'url' && !jdText.trim())}
               className={`inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Zap size={18} aria-hidden="true" />

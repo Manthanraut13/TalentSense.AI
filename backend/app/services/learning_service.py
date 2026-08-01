@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
+from app.services.chain import get_llm
 from app.services.mongo_service import learning_plans_collection
 
 logger = logging.getLogger(__name__)
@@ -36,31 +37,24 @@ Return ONLY this JSON:
 """
 
 
-def get_llm():
-    from langchain_groq import ChatGroq
-
-    return ChatGroq(
-        api_key=settings.groq_api_key,
-        model=settings.groq_model,
-        temperature=0.2,
-        max_tokens=1024,
-        timeout=30,
-        max_retries=2,
-    )
+_learning_chain = None
 
 
 def get_learning_chain():
     from langchain_core.output_parsers import JsonOutputParser
     from langchain_core.prompts import ChatPromptTemplate
 
-    parser = JsonOutputParser()
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", LEARNING_PLAN_SYSTEM_PROMPT),
-            ("human", LEARNING_PLAN_HUMAN_PROMPT),
-        ]
-    )
-    return prompt | get_llm() | parser
+    global _learning_chain
+    if _learning_chain is None:
+        parser = JsonOutputParser()
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", LEARNING_PLAN_SYSTEM_PROMPT),
+                ("human", LEARNING_PLAN_HUMAN_PROMPT),
+            ]
+        )
+        _learning_chain = prompt | get_llm() | parser
+    return _learning_chain
 
 
 def get_tavily_client():

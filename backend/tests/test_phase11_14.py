@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import deps
 from app.api.deps import get_current_user
-from app.api.routes import analysis as analysis_route
 from app.api.routes import compare as compare_route
 from app.api.routes import learning as learning_route
 from app.main import app
@@ -90,7 +90,7 @@ def test_analyze_returns_429_when_limit_reached(monkeypatch) -> None:
     async def limited(user_id: str, is_pro: bool = False):
         return {"allowed": False, "used": 5, "limit": 5, "remaining": 0}
 
-    monkeypatch.setattr(analysis_route, "check_rate_limit", limited)
+    monkeypatch.setattr(deps, "check_rate_limit", limited)
 
     response = client.post(
         "/analyze",
@@ -158,7 +158,7 @@ def test_compare_returns_ranked_results(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(compare_route, "run_comparison", fake_run_comparison)
-    monkeypatch.setattr(compare_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/compare",
@@ -195,7 +195,7 @@ def test_compare_handles_partial_failure(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(compare_route, "run_comparison", failing_run_comparison)
-    monkeypatch.setattr(compare_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/compare",
@@ -215,7 +215,7 @@ def test_compare_returns_429_when_limited(monkeypatch) -> None:
     async def limited(user_id: str, is_pro: bool = False):
         return {"allowed": False, "used": 5, "limit": 5, "remaining": 0}
 
-    monkeypatch.setattr(compare_route, "check_rate_limit", limited)
+    monkeypatch.setattr(deps, "check_rate_limit", limited)
 
     response = client.post(
         "/api/compare",
@@ -249,7 +249,7 @@ def test_learning_plan_generates_plans(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(learning_route, "generate_learning_plan", fake_generate_plan)
-    monkeypatch.setattr(learning_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",
@@ -274,7 +274,7 @@ def test_learning_plan_caps_at_eight_skills(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(learning_route, "generate_learning_plan", fake_generate_plan)
-    monkeypatch.setattr(learning_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",
@@ -292,7 +292,7 @@ def test_learning_plan_rejects_empty_skills(monkeypatch) -> None:
     async def allow_rate_limit(user_id: str, is_pro: bool = False):
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
-    monkeypatch.setattr(learning_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",

@@ -50,17 +50,14 @@ async def increment_usage(user_id: str, count: int = 1) -> int:
         return 0
 
 
-async def check_rate_limit(user_id: str, is_pro: bool = False) -> dict:
+async def check_rate_limit(user_id: str) -> dict:
     """
     Check if the user is within their daily action limit.
 
-    Pro users are unlimited. Free users get `settings.rate_limit_requests`
+    The Pro plan is on hold, so every user gets `settings.rate_limit_requests`
     actions per day (UTC). Falls back to an in-memory limiter when MongoDB
     is unavailable.
     """
-    if is_pro:
-        return {"allowed": True, "used": 0, "limit": -1, "remaining": -1}
-
     limit = settings.rate_limit_requests
     collection = _rate_limits_collection()
     if collection is None:

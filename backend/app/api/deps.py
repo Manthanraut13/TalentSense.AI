@@ -1,11 +1,12 @@
 import logging
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from jose import jwt, JWTError
 import httpx
 from datetime import datetime, timezone
 
 from app.core.config import settings
+from app.services.rate_limit_service import check_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -114,3 +115,26 @@ async def get_current_user(authorization: str = Header(...)) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
+
+
+async def enforce_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
+    """
+    Shared dependency: check the user's daily action limit before expensive work.
+    Raises 429 when the limit is exceeded, and records the rate status on the
+    request so routes can emit X-RateLimit-* headers.
+    """
+    rate_status = await check_rate_limit(user_id)
+    if not rate_status["allowed"]:
+        logger.warning("Rate limit exceeded: user=%s, used=%s/%s",
+                       user_id, rate_status["used"], rate_status["limit"])
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": "Daily analysis limit reached. Please try again tomorrow.",
+                "used": rate_status["used"],
+                "limit": rate_status["limit"],
+                "resets": "midnight UTC",
+            },
+        )
+    request.state.rate_limit_info = rate_status
+    return user_id

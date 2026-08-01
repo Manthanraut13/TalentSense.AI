@@ -7,7 +7,7 @@ from uuid import uuid4
 import sentry_sdk
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, status, UploadFile
 
-from app.api.deps import get_current_user
+from app.api.deps import enforce_rate_limit, get_current_user
 from app.models.response import AnalysisResult
 from app.services.ats_simulator import ATSResult, run_ats_simulation
 from app.services.chain import AnalysisServiceUnavailable, analyze as analyze_fn
@@ -33,25 +33,6 @@ _EMPTY_ATS_RESULT = ATSResult(
     checks_total=0,
     details=[],
 )
-
-
-async def enforce_rate_limit(request: Request, user_id: str = Depends(get_current_user)) -> str:
-    """Check the user's daily limit BEFORE any expensive processing. Raises 429 when exceeded."""
-    rate_status = await check_rate_limit(user_id, is_pro=False)
-    if not rate_status["allowed"]:
-        logger.warning("Rate limit exceeded: user=%s, used=%s/%s",
-                       user_id, rate_status["used"], rate_status["limit"])
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "message": "Daily analysis limit reached. Please try again tomorrow.",
-                "used": rate_status["used"],
-                "limit": rate_status["limit"],
-                "resets": "midnight UTC",
-            },
-        )
-    request.state.rate_limit_info = rate_status
-    return user_id
 
 
 @router.post("/analyze", response_model=AnalysisResult)
@@ -210,7 +191,7 @@ async def analyze_resume(
 
 @router.get("/usage")
 async def get_usage_status(user_id: str = Depends(get_current_user)):
-    rate_status = await check_rate_limit(user_id, is_pro=False)
+    rate_status = await check_rate_limit(user_id)
     logger.debug("Usage check for user=%s: %s", user_id, rate_status)
     return {
         "used": rate_status["used"],

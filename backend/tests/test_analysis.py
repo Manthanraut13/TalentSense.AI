@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import deps
 from app.api.deps import get_current_user
 from app.api.routes import analysis as analysis_route
 from app.api.routes import history as history_route
@@ -31,7 +32,7 @@ def isolate_external_services(monkeypatch):
     async def allow_rate_limit(user_id: str, is_pro: bool = False):
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
-    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
     monkeypatch.setattr(analysis_route, "qdrant_service", NoopQdrantService())
     monkeypatch.setattr(analysis_route, "mongo_service", NoopMongoService())
 
@@ -106,7 +107,7 @@ def test_analyze_returns_503_without_groq_key(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(settings, "groq_api_key", None)
-    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/analyze",
@@ -151,7 +152,7 @@ def test_analyze_returns_ai_payload_when_chain_succeeds(monkeypatch) -> None:
             context_note="No past context was available.",
         )
 
-    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
     monkeypatch.setattr(analysis_route, "analyze_fn", fake_analyze)
 
     response = client.post(
@@ -222,7 +223,7 @@ def test_analyze_retrieves_context_and_saves_history(monkeypatch) -> None:
             assert len(resume_text) >= 200
             return True
 
-    monkeypatch.setattr(analysis_route, "check_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
     monkeypatch.setattr(analysis_route, "analyze_fn", fake_analyze)
     monkeypatch.setattr(analysis_route, "qdrant_service", FakeQdrantService())
     monkeypatch.setattr(analysis_route, "mongo_service", FakeMongoService())

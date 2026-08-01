@@ -114,19 +114,25 @@ def format_resume_sections(parsed_resume) -> str:
 analyze_chain = type('AnalysisChain', (), {'analyze': staticmethod(analyze)})()
 
 
+_comparison_chain = None
+
+
 def get_comparison_chain():
     from langchain_core.output_parsers import JsonOutputParser
     from langchain_core.prompts import ChatPromptTemplate
     from app.core.prompts import COMPARISON_HUMAN_PROMPT, COMPARISON_SYSTEM_PROMPT
 
-    parser = JsonOutputParser()
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", COMPARISON_SYSTEM_PROMPT),
-            ("human", COMPARISON_HUMAN_PROMPT),
-        ]
-    )
-    return prompt | get_llm() | parser
+    global _comparison_chain
+    if _comparison_chain is None:
+        parser = JsonOutputParser()
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", COMPARISON_SYSTEM_PROMPT),
+                ("human", COMPARISON_HUMAN_PROMPT),
+            ]
+        )
+        _comparison_chain = prompt | get_llm() | parser
+    return _comparison_chain
 
 
 async def run_single_comparison(
@@ -187,7 +193,13 @@ def generate_recommendation(results: list[dict]) -> dict:
     """
     valid = [(i, r) for i, r in enumerate(results) if "error" not in r]
     if not valid:
-        return {"recommended_index": 0, "reasoning": "All analyses failed."}
+        return {
+            "recommended_index": 0,
+            "recommended_title": "No analysis available",
+            "reasoning": "All analyses failed.",
+            "avoid_index": 0,
+            "avoid_reason": "No valid analysis was produced.",
+        }
 
     # Score formula: overall minus a penalty per missing skill
     def score_fn(r: dict) -> float:
