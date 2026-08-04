@@ -5,14 +5,14 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-resend.api_key = settings.RESEND_API_KEY
+resend.api_key = settings.resend_api_key
 
 
 def _send(to: str, subject: str, html: str):
     """Base send function — wraps Resend API."""
     try:
         resend.Emails.send({
-            "from": f"Resume Analyzer <{settings.FROM_EMAIL}>",
+            "from": f"Resume Analyzer <{settings.from_email}>",
             "to": to,
             "subject": subject,
             "html": html,
@@ -34,11 +34,11 @@ async def send_welcome_email(to: str, first_name: str):
         <li>Paste any job description</li>
         <li>Get an instant match score, missing skills, and ATS keywords</li>
       </ul>
-      <a href="{settings.APP_URL}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+      <a href="{settings.app_url}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
         Start Analyzing →
       </a>
       <p style="color:#aaa;font-size:12px;margin-top:32px">
-        All features are free with no limits. <a href="{settings.APP_URL}" style="color:#10B981">Start analyzing now.</a>
+        All features are free with no limits. <a href="{settings.app_url}" style="color:#10B981">Start analyzing now.</a>
       </p>
     </div>
     """
@@ -57,7 +57,7 @@ async def send_upgrade_confirmation_email(to: str, first_name: str):
         <li>✅ PDF report export</li>
         <li>✅ Analysis history forever</li>
       </ul>
-      <a href="{settings.APP_URL}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+      <a href="{settings.app_url}" style="display:inline-block;margin-top:24px;background:#10B981;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
         Go to Dashboard →
       </a>
     </div>

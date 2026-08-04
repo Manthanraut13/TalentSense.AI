@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 RUN apt-get update && \
-    apt-get install -y libmagic1 libgomp1 && \
+    apt-get install -y libmagic1 libgomp1 fonts-dejavu-core && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir -r requirements.txt
 

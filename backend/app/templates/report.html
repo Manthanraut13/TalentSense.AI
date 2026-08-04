@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Resume Match Analysis</title>
+  <style>
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1f2937; margin: 40px; }
+    h1 { font-size: 22px; color: #065f46; border-bottom: 2px solid #065f46; padding-bottom: 8px; }
+    h2 { font-size: 16px; color: #065f46; margin-top: 24px; }
+    p { font-size: 12px; line-height: 1.6; }
+    ul { font-size: 12px; line-height: 1.6; }
+    .meta { color: #6b7280; font-size: 11px; }
+    .score-box { border: 1px solid #d1d5db; padding: 12px; margin: 8px 0; }
+    .score-label { font-weight: bold; font-size: 12px; }
+    .score-green { color: #047857; }
+    .score-amber { color: #b45309; }
+    .score-orange { color: #c2410c; }
+    .score-red { color: #b91c1c; }
+    .section { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Resume &amp; Job Match Analysis</h1>
+  <p class="meta">Job Title: {{ job_title }}</p>
+  <p class="meta">Analyzed: {{ timestamp }}</p>
+
+  <div class="section">
+    <h2>Match Score</h2>
+    <div class="score-box">
+      <span class="score-label score-{{ score_class(scores.overall) }}">Overall: {{ scores.overall }}/100</span>
+    </div>
+    <div class="score-box">
+      <p class="score-label">Skills Match: <span class="score-{{ score_class(scores.skills_match) }}">{{ scores.skills_match }}/100</span></p>
+      <p class="score-label">Experience Relevance: <span class="score-{{ score_class(scores.experience_relevance) }}">{{ scores.experience_relevance }}/100</span></p>
+      <p class="score-label">Keyword Coverage: <span class="score-{{ score_class(scores.keyword_coverage) }}">{{ scores.keyword_coverage }}/100</span></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Strengths</h2>
+    <ul>
+      {% for item in strengths %}
+      <li>{{ item }}</li>
+      {% else %}
+      <li>None identified.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>Missing Skills</h2>
+    <ul>
+      {% for item in missing_skills %}
+      <li>{{ item }}</li>
+      {% else %}
+      <li>No missing skills identified.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>ATS Keywords Found</h2>
+    <ul>
+      {% for item in ats_keywords %}
+      <li>{{ item }}</li>
+      {% else %}
+      <li>No ATS keywords found.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>Improvement Tips</h2>
+    <ol>
+      {% for index, tip in enumerate(improvement_tips) %}
+      <li>{{ tip }}</li>
+      {% else %}
+      <li>No improvement tips.</li>
+      {% endfor %}
+    </ol>
+  </div>
+</body>
+</html>

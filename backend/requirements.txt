@@ -25,3 +25,4 @@ loguru
 stripe
 resend
 fpdf2
+jinja2
