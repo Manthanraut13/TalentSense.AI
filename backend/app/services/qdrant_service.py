@@ -39,19 +39,23 @@ class QdrantService:
 
     def _get_embedding_model(self):
         if self._embedding_model is None:
-            from sentence_transformers import SentenceTransformer
+            from fastembed import TextEmbedding
 
-            self._embedding_model = SentenceTransformer(
-                settings.embedding_model,
-                device="cpu",
-                model_kwargs={"low_cpu_mem_usage": False},
+            self._embedding_model = TextEmbedding(
+                model_name=settings.embedding_model,
+                threads=1,
             )
         return self._embedding_model
 
     async def _embed(self, text: str) -> list[float]:
         def run() -> list[float]:
+            import numpy as np
+
             model = self._get_embedding_model()
-            vector = model.encode(text, normalize_embeddings=True)
+            vector = np.asarray(next(model.embed([text])))
+            norm = float(np.linalg.norm(vector))
+            if norm:
+                vector = vector / norm
             return [float(value) for value in vector.tolist()]
 
         return await asyncio.to_thread(run)

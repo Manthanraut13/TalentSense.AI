@@ -8,7 +8,7 @@ langchain-core
 langchain-groq
 motor
 qdrant-client
-sentence-transformers
+fastembed
 clerk-backend-api
 python-jose[cryptography]
 httpx
