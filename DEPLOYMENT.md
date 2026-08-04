@@ -151,14 +151,14 @@ npm run build
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
-    { "src": "/(.*)", "dest": "index.html" }
-  ],
-  "env": {
-    "VITE_API_BASE_URL": "https://your-backend-domain.com"
-  }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
 ```
+
+> **Use `rewrites`, not `routes`, for the SPA fallback.** A `routes` catch-all (`{ "src": "/(.*)", "dest": "index.html" }`) is evaluated *before* the filesystem, so it also serves `index.html` for `/assets/*.js` requests. Browsers then reject it with `Failed to load module script ... MIME type of "text/html"` and the app renders a white screen. `rewrites` only apply when no real file matches, so assets load normally and unknown paths fall back to `index.html` for client-side routing.
+> Also, do **not** put `VITE_*` env vars in `vercel.json` — they belong in the Vercel project settings dashboard.
 
 2. **Environment** (frontend/.env):
 
