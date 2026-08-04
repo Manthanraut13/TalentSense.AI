@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
-        allow_origin_regex=r"chrome-extension://.*",
+        allow_origin_regex=r"https://.*\.vercel\.app|chrome-extension://.*",
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Session-ID", "Authorization"],

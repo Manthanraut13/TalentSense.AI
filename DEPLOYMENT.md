@@ -230,7 +230,7 @@ curl -f https://your-frontend-domain.com
 
 ### Backend
 
-- **CORS errors**: Check `ALLOWED_ORIGINS` in `.env` (must include your Vercel domain).
+- **CORS errors**: Check `ALLOWED_ORIGINS` in `.env` (must include your Vercel domain). A symptom is `Network Error` in the browser console paired with `OPTIONS /... -> 400` in the backend logs — the browser's CORS preflight is rejected. Any `https://*.vercel.app` origin is now allowed by the CORS regex, but custom domains must be added to `ALLOWED_ORIGINS`.
 - **`Invalid file type` on valid PDFs**: `libmagic1` not installed — add to the build command.
 - **429 on every request**: Rate limit exceeded or Mongo/fallback clock skew — check `RATE_LIMIT_REQUESTS`/`RATE_LIMIT_WINDOW_SECONDS`.
 - **Service unavailable**: Verify `GROQ_API_KEY` and other required env vars.
