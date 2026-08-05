@@ -22,6 +22,7 @@ from app.api.routes import (
     learning,
     scrape,
     resumes,
+    sharing,
     webhooks,
 )
 
@@ -36,6 +37,7 @@ v1_router.include_router(compare.router)
 v1_router.include_router(learning.router)
 v1_router.include_router(coach.router)
 v1_router.include_router(applications.router)
+v1_router.include_router(sharing.router)
 v1_router.include_router(webhooks.router)
 
 

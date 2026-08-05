@@ -32,6 +32,8 @@ V1_PATHS = [
     "/api/v1/applications",
     "/api/v1/applications/{application_id}",
     "/api/v1/applications/{application_id}/status",
+    "/api/v1/analyses/{analysis_id}/share",
+    "/api/v1/share/{slug}",
 ]
 
 LEGACY_PATHS = [

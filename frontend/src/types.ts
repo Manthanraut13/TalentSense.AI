@@ -123,6 +123,22 @@ type CoachResponse = {
   conversation_id: string;
 };
 
+type ShareResponse = {
+  share_slug: string;
+  share_url: string;
+};
+
+type PublicShareAnalysis = {
+  job_title: string;
+  timestamp: string;
+  scores: Scores;
+  missing_skills_count: number;
+  ats_keywords_count: number;
+  strengths_count: number;
+  improvement_tips_count: number;
+  strength_preview: string;
+};
+
 export type {
   Scores,
   AnalysisResult,
@@ -140,4 +156,6 @@ export type {
   CheckoutSessionResponse,
   DashboardStats,
   CoachResponse,
+  ShareResponse,
+  PublicShareAnalysis,
 };

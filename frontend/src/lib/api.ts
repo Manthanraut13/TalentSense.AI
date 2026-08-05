@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, UsageStatus } from '../types';
+import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, PublicShareAnalysis, ShareResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -182,5 +182,20 @@ export async function sendCoachMessage(params: {
     message: params.message,
     conversation_id: params.conversationId ?? null,
   });
+  return response.data;
+}
+
+export async function enableSharing(analysisId: string) {
+  const response = await api.post<ShareResponse>(`${V1}/analyses/${analysisId}/share`);
+  return response.data;
+}
+
+export async function disableSharing(analysisId: string) {
+  const response = await api.delete(`${V1}/analyses/${analysisId}/share`);
+  return response.data;
+}
+
+export async function fetchPublicAnalysis(slug: string) {
+  const response = await api.get<PublicShareAnalysis>(`${V1}/share/${slug}`);
   return response.data;
 }

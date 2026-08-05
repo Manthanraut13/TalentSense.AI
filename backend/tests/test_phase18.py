@@ -98,7 +98,7 @@ def test_create_indexes_is_idempotent(monkeypatch):
     asyncio.run(mongo_module.mongo_service.create_indexes())
 
     # Only issued once thanks to the _indexes_ready guard
-    assert len(analyses.created) == 2
+    assert len(analyses.created) == 3
 
 
 def test_slow_query_threshold_is_configurable():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from dataclasses import dataclass
 
 from app.core.config import settings
@@ -93,6 +94,13 @@ class MongoService:
             "analysis_id",
             name="analysis_id_unique_idx",
             unique=True,
+        )
+        await self._create_index_safely(
+            collection,
+            "share_slug",
+            name="share_slug_unique_idx",
+            unique=True,
+            sparse=True,
         )
 
         # ── rate_limits collection ───────────────────────────────────────────
@@ -192,6 +200,8 @@ class MongoService:
             {
                 "user_id": user_id,
                 "qdrant_vector_id": qdrant_vector_id,
+                "share_slug": secrets.token_urlsafe(10),
+                "is_public": False,  # Private by default — user must enable sharing
             }
         )
         # Only store resume snippet if explicitly enabled (privacy setting)
