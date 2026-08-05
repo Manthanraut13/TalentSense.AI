@@ -179,6 +179,17 @@ class MongoService:
             name="application_user_date_idx",
         )
 
+        # ── training_signals collection ──────────────────────────────────────
+        # One signal per (resume, jd) pair — unique so re-analysis never
+        # creates duplicate training records.
+        training_signals = collection.database.training_signals
+        await self._create_index_safely(
+            training_signals,
+            [("resume_hash", 1), ("jd_hash", 1)],
+            name="training_signal_pair_idx",
+            unique=True,
+        )
+
         self._indexes_ready = True
         logger.info("MongoDB indexes created/verified successfully")
 

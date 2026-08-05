@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     # Tavily web search (learning roadmap resource discovery)
     tavily_api_key: str = ""
+    # HuggingFace token for private fine-tuned embedding model (Phase 24)
+    hf_token: str = ""
 
 
     @cached_property

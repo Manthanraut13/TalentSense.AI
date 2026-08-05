@@ -28,6 +28,7 @@ class FakeDatabase:
         self.learning_plans = FakeAsyncCollection(db=self)
         self.scraped_jds = FakeAsyncCollection(db=self)
         self.job_applications = FakeAsyncCollection(db=self)
+        self.training_signals = FakeAsyncCollection(db=self)
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +69,12 @@ def test_create_indexes_issues_expected_indexes(monkeypatch):
     assert [name for _, name in db.scraped_jds.created] == [
         "url_unique_idx",
         "scraped_jd_ttl_idx",
+    ]
+    assert [name for _, name in db.job_applications.created] == [
+        "application_user_date_idx",
+    ]
+    assert [name for _, name in db.training_signals.created] == [
+        "training_signal_pair_idx",
     ]
 
 

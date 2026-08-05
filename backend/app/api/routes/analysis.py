@@ -16,6 +16,7 @@ from app.services.parser import parse_pdf_upload, validate_resume_text
 from app.services.qdrant_service import qdrant_service
 from app.services.rate_limit_service import check_rate_limit, increment_usage
 from app.services.sanitizer import sanitize_text, validate_pdf_bytes, MAX_RESUME_CHARS, MAX_JD_CHARS
+from app.services.training_data_service import log_training_signal
 
 
 router = APIRouter(tags=["analysis"])
@@ -171,6 +172,18 @@ async def analyze_resume(
             result.context_note = f"{result.context_note} History was not saved."
         else:
             result.context_note = "History was not saved."
+
+    # Log an anonymized training signal for future embedding fine-tuning.
+    # Never breaks the response if the log fails.
+    try:
+        await log_training_signal(
+            user_id=user_id,
+            resume_text=parsed_resume.text,
+            jd_text=job_description,
+            score=result.scores.overall,
+        )
+    except Exception as exc:
+        logger.warning("Training signal logging failed: %s", exc)
 
     # Count the analysis against the daily limit AFTER success
     try:
