@@ -8,7 +8,7 @@ from app.api.deps import enforce_rate_limit
 from app.services.learning_service import generate_learning_plan
 from app.services.rate_limit_service import increment_usage
 
-router = APIRouter(prefix="/api", tags=["learning"])
+router = APIRouter(tags=["learning"])
 logger = logging.getLogger(__name__)
 
 MAX_SKILLS_PER_REQUEST = 8

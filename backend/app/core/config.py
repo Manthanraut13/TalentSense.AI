@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_requests: int = 10
     rate_limit_window_seconds: int = 3600
+    # Slow query logging: log MongoDB queries slower than this (ms)
+    slow_query_threshold_ms: int = 100
     # Clerk auth
     clerk_secret_key: str | None = None
     clerk_publishable_key: str | None = None

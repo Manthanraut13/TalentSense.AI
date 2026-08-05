@@ -1,11 +1,12 @@
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analysis, billing, compare, history, learning, scrape, resumes, webhooks
+from app.api.v1 import legacy_router, v1_router
 from app.core.config import settings
 from app.core.logger import setup_logging, set_request_id
 from app.core.monitoring import init_sentry
@@ -16,11 +17,24 @@ setup_logging()
 init_sentry()
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Phase 18: ensure MongoDB indexes exist before serving traffic
+    from app.services.mongo_service import mongo_service
+
+    try:
+        await mongo_service.create_indexes()
+    except Exception as exc:  # never block startup on index creation
+        logger.error("MongoDB index creation failed on startup: %s", exc)
+    yield
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Resume & Job Match Analyzer API",
         version="0.1.0",
         description="FastAPI backend for resume/job description match analysis.",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -47,14 +61,8 @@ def create_app() -> FastAPI:
         logger.info("%s %s -> %s", request.method, request.url.path, response.status_code)
         return response
 
-    app.include_router(analysis.router)
-    app.include_router(history.router)
-    app.include_router(billing.router)
-    app.include_router(scrape.router)
-    app.include_router(resumes.router)
-    app.include_router(compare.router)
-    app.include_router(learning.router)
-    app.include_router(webhooks.router)
+    app.include_router(v1_router, prefix="/api")
+    app.include_router(legacy_router)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

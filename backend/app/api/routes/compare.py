@@ -8,7 +8,7 @@ from app.services.chain import generate_recommendation, run_comparison
 from app.services.rate_limit_service import increment_usage
 from app.services.sanitizer import sanitize_text, MAX_RESUME_CHARS, MAX_JD_CHARS
 
-router = APIRouter(prefix="/api", tags=["compare"])
+router = APIRouter(tags=["compare"])
 logger = logging.getLogger(__name__)
 
 

@@ -14,6 +14,7 @@ const ResultsPage = lazy(() => import('./pages/ResultsPage').then((m) => ({ defa
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
+const CoachPage = lazy(() => import('./pages/Coach'));
 
 function LoadingFallback() {
   return (
@@ -105,6 +106,16 @@ export function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/coach"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <CoachPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="*"
@@ -144,6 +155,9 @@ function AuthNav() {
       </Link>
       <Link to="/compare" className="text-sm text-textSecondary transition hover:text-primary">
         Compare Jobs
+      </Link>
+      <Link to="/coach" className="text-sm text-textSecondary transition hover:text-primary">
+        Career Coach
       </Link>
       <UsageBadge />
       <span className="text-sm text-textSecondary hidden md:block">

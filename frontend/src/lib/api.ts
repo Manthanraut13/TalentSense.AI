@@ -1,8 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, UsageStatus } from '../types';
+import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+const V1 = '/api/v1';
 
 function logRequest(method: string | undefined, url: string | undefined, payload?: unknown) {
   console.debug(`[API] → ${method?.toUpperCase()} ${url}`, payload ? payload : '');
@@ -98,34 +100,34 @@ export async function analyzeResume(params: {
     form.append('resume_file', params.resumeFile);
   }
 
-  const response = await api.post<AnalysisResult>('/analyze', form, {
+  const response = await api.post<AnalysisResult>(`${V1}/analyze`, form, {
     timeout: 180000,
   });
   return response.data;
 }
 
 export async function fetchHistory() {
-  const response = await api.get<HistoryListResponse>('/history');
+  const response = await api.get<HistoryListResponse>(`${V1}/history`);
   return response.data;
 }
 
 export async function fetchAnalysis(analysisId: string) {
-  const response = await api.get<AnalysisResult>(`/history/${analysisId}`);
+  const response = await api.get<AnalysisResult>(`${V1}/history/${analysisId}`);
   return response.data;
 }
 
 export async function deleteAnalysis(analysisId: string) {
-  const response = await api.delete(`/history/${analysisId}`);
+  const response = await api.delete(`${V1}/history/${analysisId}`);
   return response.data;
 }
 
 export async function fetchUsage() {
-  const response = await api.get<UsageStatus>('/usage');
+  const response = await api.get<UsageStatus>(`${V1}/usage`);
   return response.data;
 }
 
 export async function fetchBillingStatus() {
-  const response = await api.get<BillingStatus>('/api/billing/status');
+  const response = await api.get<BillingStatus>(`${V1}/billing/status`);
   return response.data;
 }
 
@@ -135,7 +137,7 @@ export async function createCheckoutSession(params: {
   cancelUrl: string;
 }) {
   const response = await api.post<CheckoutSessionResponse>(
-    '/api/billing/create-checkout-session',
+    `${V1}/billing/create-checkout-session`,
     {
       email: params.email,
       success_url: params.successUrl,
@@ -146,7 +148,7 @@ export async function createCheckoutSession(params: {
 }
 
 export async function fetchDashboardStats() {
-  const response = await api.get<DashboardStats>('/history/dashboard/stats');
+  const response = await api.get<DashboardStats>(`${V1}/history/dashboard/stats`);
   return response.data;
 }
 
@@ -154,7 +156,7 @@ export async function compareJobs(params: {
   resumeText: string;
   jobDescriptions: string[];
 }) {
-  const response = await api.post<CompareResponse>('/api/compare', {
+  const response = await api.post<CompareResponse>(`${V1}/compare`, {
     resume_text: params.resumeText,
     job_descriptions: params.jobDescriptions,
   });
@@ -165,9 +167,20 @@ export async function fetchLearningPlan(params: {
   skills: string[];
   jobContext?: string;
 }) {
-  const response = await api.post<LearningPlanResponse>('/api/learning-plan', {
+  const response = await api.post<LearningPlanResponse>(`${V1}/learning-plan`, {
     skills: params.skills,
     job_context: params.jobContext ?? '',
+  });
+  return response.data;
+}
+
+export async function sendCoachMessage(params: {
+  message: string;
+  conversationId?: string | null;
+}) {
+  const response = await api.post<CoachResponse>(`${V1}/coach/chat`, {
+    message: params.message,
+    conversation_id: params.conversationId ?? null,
   });
   return response.data;
 }

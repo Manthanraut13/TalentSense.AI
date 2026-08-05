@@ -12,7 +12,7 @@ from app.services.user_service import (
     upgrade_user_to_pro,
 )
 
-router = APIRouter(prefix="/api/billing", tags=["billing"])
+router = APIRouter(prefix="/billing", tags=["billing"])
 logger = logging.getLogger(__name__)
 
 

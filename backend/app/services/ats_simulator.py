@@ -17,9 +17,11 @@ TECH_SKILLS_VOCAB = {
 }
 
 EXPERIENCE_PATTERNS = [
-    r"(\d+)\+?\s*(?:to\s*\d+)?\s*years?\s*(?:of\s*)?(?:experience|exp)",
+    r"(\d+)\+?\s*(?:to\s*\d+)?\s*years?\s+(?:of\s+)?(?:related\s+)?(?:work\s+)?(?:professional\s+)?experience",
+    r"(\d+)\+?\s*years?\s+of\s+[\w\s/-]+?\s+(?:experience|exp)",
     r"minimum\s+(\d+)\s+years?",
     r"at\s+least\s+(\d+)\s+years?",
+    r"(\d+)\+?\s*years?\s+(?:experience|exp)",
 ]
 
 EDUCATION_KEYWORDS = {

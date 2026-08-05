@@ -75,7 +75,7 @@ export function HomePage() {
   const scrapeMutation = useMutation({
     mutationFn: async (url: string) => {
       console.debug('[HomePage] Scraping JD from URL:', url);
-      const { data } = await api.post('/scrape-jd', { url });
+      const { data } = await api.post('/api/v1/scrape-jd', { url });
       return data;
     },
     onSuccess: (data) => {

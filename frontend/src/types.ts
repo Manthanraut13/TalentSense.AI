@@ -118,6 +118,11 @@ type DashboardStats = {
   top_missing_skills: { skill: string; count: number }[];
 };
 
+type CoachResponse = {
+  response: string;
+  conversation_id: string;
+};
+
 export type {
   Scores,
   AnalysisResult,
@@ -134,4 +139,5 @@ export type {
   BillingStatus,
   CheckoutSessionResponse,
   DashboardStats,
+  CoachResponse,
 };

@@ -53,6 +53,27 @@ class MongoService:
         return self._collection
 
     async def _ensure_indexes(self) -> None:
+        await self.create_indexes()
+
+    async def _create_index_safely(self, collection, keys, *, name, **kwargs) -> None:
+        """
+        Create an index, tolerating the case where the same key pattern already
+        exists under a different name (MongoDB error code 85). This keeps the
+        migration from old unnamed indexes idempotent.
+        """
+        try:
+            await collection.create_index(keys, name=name, **kwargs)
+        except Exception as exc:
+            if getattr(exc, "code", None) == 85:
+                logger.debug("Index %s already exists under a different name: %s", name, exc)
+            else:
+                raise
+
+    async def create_indexes(self) -> None:
+        """
+        Create all MongoDB indexes across every collection.
+        Called once on app startup. Idempotent — safe to run on every restart.
+        """
         if self._indexes_ready:
             return
 
@@ -60,22 +81,98 @@ class MongoService:
         if collection is None:
             return
 
-        await collection.create_index([("user_id", 1), ("timestamp", -1)])
-        await collection.create_index("analysis_id", unique=True)
-
-        # Rate limit indexes - expire documents after 2 days automatically
-        rate_limits_collection = collection.database.rate_limits
-        await rate_limits_collection.create_index("user_id")
-        await rate_limits_collection.create_index(
-            "date",
-            expireAfterSeconds=172800,  # Auto-delete docs after 2 days
+        # ── analyses collection ──────────────────────────────────────────────
+        # Most common query: get all analyses for a user, sorted by date
+        await self._create_index_safely(
+            collection,
+            [("user_id", 1), ("timestamp", -1)],
+            name="user_history_idx",
+        )
+        await self._create_index_safely(
+            collection,
+            "analysis_id",
+            name="analysis_id_unique_idx",
+            unique=True,
         )
 
-        # Learning plan cache - unique per skill
+        # ── rate_limits collection ───────────────────────────────────────────
+        rate_limits_collection = collection.database.rate_limits
+        await self._create_index_safely(
+            rate_limits_collection,
+            [("user_id", 1), ("date", 1)],
+            name="rate_limit_user_date_idx",
+            unique=True,
+        )
+        # Auto-expire old rate limit documents after 2 days
+        await self._create_index_safely(
+            rate_limits_collection,
+            "date",
+            name="rate_limit_ttl_idx",
+            expireAfterSeconds=172800,
+        )
+
+        # ── users collection ─────────────────────────────────────────────────
+        users_collection = collection.database.users
+        await self._create_index_safely(
+            users_collection,
+            "user_id",
+            name="user_id_unique_idx",
+            unique=True,
+        )
+        await self._create_index_safely(
+            users_collection,
+            "stripe_customer_id",
+            name="stripe_customer_idx",
+        )
+
+        # ── resumes collection ───────────────────────────────────────────────
+        resumes_collection = collection.database.resumes
+        await self._create_index_safely(
+            resumes_collection,
+            [("user_id", 1), ("created_at", -1)],
+            name="resume_user_date_idx",
+        )
+
+        # ── learning_plans collection ────────────────────────────────────────
         learning_plans = collection.database.learning_plans
-        await learning_plans.create_index("skill", unique=True)
+        await self._create_index_safely(
+            learning_plans,
+            "skill",
+            name="skill_unique_idx",
+            unique=True,
+        )
+        await self._create_index_safely(
+            learning_plans,
+            "created_at",
+            name="learning_plan_ttl_idx",
+            expireAfterSeconds=604800,  # 7-day TTL — auto-expire stale plans
+        )
+
+        # ── scraped_jds collection ───────────────────────────────────────────
+        scraped_jds = collection.database.scraped_jds
+        await self._create_index_safely(
+            scraped_jds,
+            "url",
+            name="url_unique_idx",
+            unique=True,
+        )
+        await self._create_index_safely(
+            scraped_jds,
+            "scraped_at",
+            name="scraped_jd_ttl_idx",
+            expireAfterSeconds=86400,  # 24-hour TTL for scraped JDs
+        )
+
+        # ── job_applications collection ──────────────────────────────────────
+        applications_collection = collection.database.job_applications
+        await self._create_index_safely(
+            applications_collection,
+            [("user_id", 1), ("updated_at", -1)],
+            name="application_user_date_idx",
+        )
 
         self._indexes_ready = True
+        logger.info("MongoDB indexes created/verified successfully")
 
     async def save_analysis(
         self,
@@ -114,6 +211,9 @@ class MongoService:
         if collection is None:
             return HistoryListResponse(analyses=[], total=0)
 
+        import time
+
+        start = time.perf_counter()
         query = {"user_id": user_id}
         total = await collection.count_documents(query)
         cursor = (
@@ -131,6 +231,17 @@ class MongoService:
             )
             async for document in cursor
         ]
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        if elapsed_ms > settings.slow_query_threshold_ms:
+            logger.warning(
+                "Slow query: list_history for user=%s took %.0fms (limit=%d, skip=%d)",
+                user_id,
+                elapsed_ms,
+                limit,
+                skip,
+            )
+
         return HistoryListResponse(analyses=analyses, total=total)
 
     async def get_analysis(self, *, user_id: str, analysis_id: str) -> AnalysisResult | None:

@@ -84,7 +84,7 @@ export default function SidePanel() {
     }
     setLoadingResumes(true)
     axios
-      .get<SavedResume[]>(`${API_BASE}/api/resumes`, {
+      .get<SavedResume[]>(`${API_BASE}/api/v1/resumes`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setSavedResumes(res.data))
@@ -98,7 +98,7 @@ export default function SidePanel() {
     setError(null)
     setResult(null)
     try {
-      const resume = await axios.get<{ content: string }>(`${API_BASE}/api/resumes/${selectedResumeId}`, {
+      const resume = await axios.get<{ content: string }>(`${API_BASE}/api/v1/resumes/${selectedResumeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
 
@@ -107,7 +107,7 @@ export default function SidePanel() {
       formData.append("input_mode", "text")
       formData.append("resume_text", resume.data.content)
 
-      const { data } = await axios.post<AnalysisResult>(`${API_BASE}/analyze`, formData, {
+      const { data } = await axios.post<AnalysisResult>(`${API_BASE}/api/v1/analyze`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       })
       setResult(data)

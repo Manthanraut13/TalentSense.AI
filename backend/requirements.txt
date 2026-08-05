@@ -26,3 +26,9 @@ stripe
 resend
 fpdf2
 jinja2
+
+# Testing (Phase 20)
+pytest
+pytest-asyncio
+pytest-mock
+faker
