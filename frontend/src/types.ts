@@ -139,6 +139,46 @@ type PublicShareAnalysis = {
   strength_preview: string;
 };
 
+type ApplicationStatus =
+  | 'saved'
+  | 'applied'
+  | 'phone_screen'
+  | 'technical'
+  | 'final_round'
+  | 'offer'
+  | 'rejected';
+
+type ApplicationStatusHistory = {
+  status: ApplicationStatus;
+  changed_at: string;
+};
+
+type Application = {
+  application_id: string;
+  company: string;
+  role: string;
+  job_url?: string;
+  status: ApplicationStatus;
+  analysis_id?: string | null;
+  match_score?: number | null;
+  notes?: string;
+  applied_date?: string | null;
+  created_at: string;
+  updated_at: string;
+  status_history: ApplicationStatusHistory[];
+};
+
+type CreateApplicationInput = {
+  company: string;
+  role: string;
+  job_url?: string;
+  status?: ApplicationStatus;
+  analysis_id?: string | null;
+  match_score?: number | null;
+  notes?: string;
+  applied_date?: string | null;
+};
+
 export type {
   Scores,
   AnalysisResult,
@@ -158,4 +198,8 @@ export type {
   CoachResponse,
   ShareResponse,
   PublicShareAnalysis,
+  Application,
+  ApplicationStatus,
+  ApplicationStatusHistory,
+  CreateApplicationInput,
 };

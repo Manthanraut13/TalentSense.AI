@@ -16,6 +16,7 @@ const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
 const CoachPage = lazy(() => import('./pages/Coach'));
 const ShareView = lazy(() => import('./pages/ShareView'));
+const ApplicationsPage = lazy(() => import('./pages/Applications'));
 
 function LoadingFallback() {
   return (
@@ -129,6 +130,16 @@ export function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/applications"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <ApplicationsPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="*"
@@ -168,6 +179,9 @@ function AuthNav() {
       </Link>
       <Link to="/compare" className="text-sm text-textSecondary transition hover:text-primary">
         Compare Jobs
+      </Link>
+      <Link to="/applications" className="text-sm text-textSecondary transition hover:text-primary">
+        Applications
       </Link>
       <Link to="/coach" className="text-sm text-textSecondary transition hover:text-primary">
         Career Coach

@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-import type { AnalysisResult, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, DashboardStats, HistoryListResponse, LearningPlanResponse, PublicShareAnalysis, ShareResponse, UsageStatus } from '../types';
+import type { AnalysisResult, Application, ApplicationStatus, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, CreateApplicationInput, DashboardStats, HistoryListResponse, LearningPlanResponse, PublicShareAnalysis, ShareResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -197,5 +197,48 @@ export async function disableSharing(analysisId: string) {
 
 export async function fetchPublicAnalysis(slug: string) {
   const response = await api.get<PublicShareAnalysis>(`${V1}/share/${slug}`);
+  return response.data;
+}
+
+export async function fetchApplications() {
+  const response = await api.get<Application[]>(`${V1}/applications`);
+  return response.data;
+}
+
+export async function createApplication(params: CreateApplicationInput) {
+  const response = await api.post<Application>(`${V1}/applications`, params);
+  return response.data;
+}
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  params: { status: ApplicationStatus; notes?: string },
+) {
+  const response = await api.patch<Application>(
+    `${V1}/applications/${applicationId}/status`,
+    params,
+  );
+  return response.data;
+}
+
+export async function updateApplication(
+  applicationId: string,
+  params: {
+    company?: string;
+    role?: string;
+    job_url?: string;
+    notes?: string;
+    applied_date?: string;
+  },
+) {
+  const response = await api.patch<Application>(
+    `${V1}/applications/${applicationId}`,
+    params,
+  );
+  return response.data;
+}
+
+export async function deleteApplication(applicationId: string) {
+  const response = await api.delete(`${V1}/applications/${applicationId}`);
   return response.data;
 }

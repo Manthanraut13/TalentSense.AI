@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { Check, Copy, Share2 } from 'lucide-react';
+import { Briefcase, Check, Copy, Share2 } from 'lucide-react';
 
 import { ResultView } from '../components/ResultView';
 import { fetchAnalysis } from '../lib/api';
@@ -10,11 +10,22 @@ import { useSharing } from '../hooks/useSharing';
 
 export function ResultsPage() {
   const { analysisId } = useParams();
+  const navigate = useNavigate();
   const { userId, isLoaded } = useAuth();
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { shareUrl, enableSharing, disableSharing, isEnabling } = useSharing();
+
+  const handleTrack = () => {
+    if (!result?.job_title) return;
+    const params = new URLSearchParams({
+      role: result.job_title,
+      score: String(result.scores.overall),
+      analysis_id: result.analysis_id,
+    });
+    navigate(`/applications?${params.toString()}`);
+  };
 
   const handleCopy = async () => {
     if (!shareUrl) return;
@@ -48,6 +59,13 @@ export function ResultsPage() {
         <>
           <ResultView result={result} />
           <section className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-5">
+            <button
+              onClick={handleTrack}
+              className="flex items-center gap-2 rounded-lg border border-line px-4 py-2 text-sm text-textSecondary transition hover:border-primary hover:text-primary"
+            >
+              <Briefcase size={14} />
+              Track this job
+            </button>
             {!shareUrl ? (
               <button
                 onClick={() => result.analysis_id && enableSharing(result.analysis_id)}
