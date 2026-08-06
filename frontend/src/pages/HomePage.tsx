@@ -294,11 +294,12 @@ try {
                     <input
                       type="url"
                       value={jdUrl}
-                      onChange={(e) => { setJdUrl(e.target.value); setJdSuccess(''); }}
+                      onChange={(e) => { setJdUrl(e.target.value); setJdSuccess(''); setJdText(''); }}
                       placeholder="https://linkedin.com/jobs/view/..."
                       className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
                     />
                     <button
+                      type="button"
                       onClick={() => scrapeMutation.mutate(jdUrl)}
                       disabled={!jdUrl || scrapeMutation.isPending}
                       className="w-full bg-secondary text-black font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2"
@@ -306,6 +307,24 @@ try {
                       {scrapeMutation.isPending && <Loader2 size={14} className="animate-spin" />}
                       {scrapeMutation.isPending ? 'Fetching JD...' : 'Fetch Job Description'}
                     </button>
+                    {jdText ? (
+                      <div className="rounded-lg border border-line bg-base p-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-xs text-textSecondary">
+                            Fetched job description — review it, then click Analyze Now.
+                          </p>
+                          <span className="ml-2 shrink-0 text-xs text-textSecondary">
+                            {jdText.length.toLocaleString()} chars
+                          </span>
+                        </div>
+                        <textarea
+                          readOnly
+                          value={jdText}
+                          className="max-h-48 min-h-24 w-full resize-y rounded-md border border-line bg-elevated p-3 text-xs text-textPrimary outline-none"
+                          aria-label="Fetched job description preview"
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </section>

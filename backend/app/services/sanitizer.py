@@ -12,16 +12,19 @@ MAX_JD_CHARS = 4_000
 MAX_PDF_SIZE_MB = 5
 MAX_PDF_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024
 
-# Prompt injection patterns
+# Prompt injection patterns.
+# Kept deliberately narrow: job descriptions are web content and legitimately
+# contain phrases like "act as a subject matter expert" or "you are now part of
+# the team". Only clearly instruction-targeted phrasings are blocked.
 INJECTION_PATTERNS = [
     r"ignore\s+(all\s+)?(previous|above|prior)\s+instructions",
     r"disregard\s+(all\s+)?(previous|above|prior)\s+instructions",
-    r"you\s+are\s+now\s+(a|an)",
-    r"act\s+as\s+(a|an|if)",
-    r"pretend\s+(you\s+are|to\s+be)",
+    r"you\s+are\s+now\s+a(?:n)?\s+(?:different\s+)?(?:ai|assistant|chatbot|gpt|model|robot|system)\b",
+    r"from\s+now\s+on[^\n]{0,60}\b(?:act\s+as|you\s+are)\b",
+    r"act\s+as\s+if\b",
+    r"pretend\s+you\s+are\b",
     r"new\s+instructions?\s*:",
     r"system\s*prompt",
-    r"your\s+(real|true|actual)\s+(purpose|goal|task)",
     r"jailbreak",
     r"dan\s+mode",
     r"<\s*script",
