@@ -1,12 +1,11 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.api.deps import enforce_rate_limit
+from app.api.deps import get_current_user
 from app.services.learning_service import generate_learning_plan
-from app.services.rate_limit_service import increment_usage
 
 router = APIRouter(tags=["learning"])
 logger = logging.getLogger(__name__)
@@ -22,10 +21,8 @@ class LearningPlanRequest(BaseModel):
 
 @router.post("/learning-plan")
 async def get_learning_plan(
-    request: Request,
-    response: Response,
     body: LearningPlanRequest,
-    user_id: str = Depends(enforce_rate_limit),
+    user_id: str = Depends(get_current_user),
 ):
     """Generate learning plans for a list of missing skills."""
     skills = [s.strip()[:MAX_SKILL_LENGTH] for s in body.skills[:MAX_SKILLS_PER_REQUEST] if s.strip()]
@@ -54,18 +51,6 @@ async def get_learning_plan(
             })
         else:
             results.append(plan)
-
-    # Count each planned skill against the daily limit AFTER success
-    try:
-        await increment_usage(user_id, count=len(skills))
-    except Exception as exc:
-        logger.warning("Rate limit increment failed: %s", exc)
-
-    # Rate limit headers
-    rate_status = request.state.rate_limit_info
-    response.headers["X-RateLimit-Limit"] = str(rate_status["limit"])
-    response.headers["X-RateLimit-Remaining"] = str(rate_status["remaining"])
-    response.headers["X-RateLimit-Used"] = str(rate_status["used"])
 
     logger.info("Learning plans generated: user=%s, total=%d", user_id, len(results))
 

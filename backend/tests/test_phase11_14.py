@@ -154,11 +154,7 @@ def test_compare_returns_ranked_results(monkeypatch) -> None:
             },
         ]
 
-    async def allow_rate_limit(user_id: str, is_pro: bool = False):
-        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
-
     monkeypatch.setattr(compare_route, "run_comparison", fake_run_comparison)
-    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/compare",
@@ -195,7 +191,6 @@ def test_compare_handles_partial_failure(monkeypatch) -> None:
         return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
 
     monkeypatch.setattr(compare_route, "run_comparison", failing_run_comparison)
-    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/compare",
@@ -209,13 +204,20 @@ def test_compare_handles_partial_failure(monkeypatch) -> None:
     assert body["recommendation"]["recommended_index"] == 1
 
 
-def test_compare_returns_429_when_limited(monkeypatch) -> None:
+def test_compare_is_not_rate_limited(monkeypatch) -> None:
     app.dependency_overrides[get_current_user] = fake_current_user
 
-    async def limited(user_id: str, is_pro: bool = False):
+    async def fake_run_comparison(resume_text: str, job_descriptions: list[str]) -> list[dict]:
+        return [
+            {"job_title": "Job 1", "scores": {"overall": 70, "skills_match": 70, "experience_relevance": 70, "keyword_coverage": 70}, "missing_skills": [], "key_strengths": ["FastAPI"], "biggest_gap": "", "fit_summary": "Ok"},
+            {"job_title": "Job 2", "scores": {"overall": 80, "skills_match": 80, "experience_relevance": 80, "keyword_coverage": 80}, "missing_skills": [], "key_strengths": ["Docker"], "biggest_gap": "", "fit_summary": "Good"},
+        ]
+
+    async def denied(user_id: str, is_pro: bool = False):
         return {"allowed": False, "used": 5, "limit": 5, "remaining": 0}
 
-    monkeypatch.setattr(deps, "check_rate_limit", limited)
+    monkeypatch.setattr(compare_route, "run_comparison", fake_run_comparison)
+    monkeypatch.setattr(deps, "check_rate_limit", denied)
 
     response = client.post(
         "/api/compare",
@@ -223,7 +225,8 @@ def test_compare_returns_429_when_limited(monkeypatch) -> None:
         json={"resume_text": valid_resume(), "job_descriptions": [valid_jd(), valid_jd()]},
     )
 
-    assert response.status_code == 429
+    # Compare is not subject to the daily analyze limit.
+    assert response.status_code == 200
 
 
 # --------------------------------------------------------------------------- #
@@ -245,11 +248,7 @@ def test_learning_plan_generates_plans(monkeypatch) -> None:
             ],
         }
 
-    async def allow_rate_limit(user_id: str, is_pro: bool = False):
-        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
-
     monkeypatch.setattr(learning_route, "generate_learning_plan", fake_generate_plan)
-    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",
@@ -270,11 +269,7 @@ def test_learning_plan_caps_at_eight_skills(monkeypatch) -> None:
     async def fake_generate_plan(skill: str, job_context: str = "") -> dict:
         return {"skill": skill, "priority": "low", "estimated_weeks": 1, "learning_path": [], "resources": []}
 
-    async def allow_rate_limit(user_id: str, is_pro: bool = False):
-        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
-
     monkeypatch.setattr(learning_route, "generate_learning_plan", fake_generate_plan)
-    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",
@@ -286,13 +281,8 @@ def test_learning_plan_caps_at_eight_skills(monkeypatch) -> None:
     assert response.json()["total"] == 8
 
 
-def test_learning_plan_rejects_empty_skills(monkeypatch) -> None:
+def test_learning_plan_rejects_empty_skills() -> None:
     app.dependency_overrides[get_current_user] = fake_current_user
-
-    async def allow_rate_limit(user_id: str, is_pro: bool = False):
-        return {"allowed": True, "used": 1, "limit": 5, "remaining": 4}
-
-    monkeypatch.setattr(deps, "check_rate_limit", allow_rate_limit)
 
     response = client.post(
         "/api/learning-plan",
@@ -301,3 +291,25 @@ def test_learning_plan_rejects_empty_skills(monkeypatch) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_learning_plan_is_not_rate_limited(monkeypatch) -> None:
+    app.dependency_overrides[get_current_user] = fake_current_user
+
+    async def fake_generate_plan(skill: str, job_context: str = "") -> dict:
+        return {"skill": skill, "priority": "low", "estimated_weeks": 1, "learning_path": [], "resources": []}
+
+    async def denied(user_id: str, is_pro: bool = False):
+        return {"allowed": False, "used": 5, "limit": 5, "remaining": 0}
+
+    monkeypatch.setattr(learning_route, "generate_learning_plan", fake_generate_plan)
+    monkeypatch.setattr(deps, "check_rate_limit", denied)
+
+    response = client.post(
+        "/api/learning-plan",
+        headers=valid_headers(),
+        json={"skills": ["Redis"]},
+    )
+
+    # Learning plan is not subject to the daily analyze limit.
+    assert response.status_code == 200
