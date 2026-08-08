@@ -8,8 +8,8 @@ export function scoreLabel(score: number) {
 export function scoreColorClass(score: number) {
   if (score >= 80) return 'text-primary';
   if (score >= 60) return 'text-secondary';
-  if (score >= 40) return 'text-orange-400';
-  return 'text-red-400';
+  if (score >= 40) return 'text-orange-600';
+  return 'text-red-600';
 }
 
 export function formatDate(value: string) {

@@ -4,7 +4,7 @@ import { AlertTriangle, Loader2, Plus, Trash2, Trophy } from 'lucide-react';
 import { useCompareMutation } from '../hooks/useCompare';
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
-  const color = value >= 80 ? '#10B981' : value >= 60 ? '#F59E0B' : '#EF4444';
+  const color = value >= 80 ? '#0EA5A0' : value >= 60 ? '#F97316' : '#EF4444';
   return (
     <div>
       <div className="mb-1 flex justify-between text-xs">
@@ -87,24 +87,25 @@ export function ComparePage() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">Compare</p>
         <h1 className="text-3xl font-bold">Multi-JD Comparison</h1>
         <p className="mt-2 text-sm text-textSecondary">Find which job fits your resume best</p>
       </div>
 
       <div className="space-y-6">
-        <section className="rounded-lg border border-line bg-surface p-5">
-          <h2 className="mb-3 text-sm font-semibold">Your Resume</h2>
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-textSecondary">Your Resume</h2>
           <textarea
             value={resumeText}
             onChange={(e) => setResumeText(e.target.value)}
             placeholder="Paste your resume text here..."
-            className="h-40 w-full resize-none rounded-lg border border-line bg-elevated p-4 text-sm outline-none focus:border-primary"
+            className="h-40 w-full resize-none rounded-xl border border-line bg-surface p-4 text-sm outline-none focus:border-primary"
           />
         </section>
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Job Descriptions ({jds.length}/3)</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-textSecondary">Job Descriptions ({jds.length}/3)</h2>
             {jds.length < 3 ? (
               <button onClick={addJD} className="flex items-center gap-1.5 text-xs text-primary transition hover:text-primary-hover">
                 <Plus size={12} aria-hidden="true" /> Add Job Description
@@ -114,13 +115,13 @@ export function ComparePage() {
 
           <div className={`grid gap-4 ${jds.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
             {jds.map((jd, i) => (
-              <div key={i} className="rounded-lg border border-line bg-surface p-4">
+              <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-semibold text-textSecondary">JOB {i + 1}</span>
                   {jds.length > 2 ? (
                     <button
                       onClick={() => removeJD(i)}
-                      className="text-textMuted transition hover:text-red-400"
+                      className="text-textMuted transition hover:text-red-600"
                       aria-label={`Remove job description ${i + 1}`}
                     >
                       <Trash2 size={12} aria-hidden="true" />
@@ -131,7 +132,7 @@ export function ComparePage() {
                   value={jd}
                   onChange={(e) => updateJD(i, e.target.value)}
                   placeholder={`Paste job description ${i + 1}...`}
-                  className="h-48 w-full resize-none rounded-lg border border-line bg-elevated p-3 text-xs outline-none focus:border-primary"
+                  className="h-48 w-full resize-none rounded-xl border border-line bg-surface p-3 text-xs outline-none focus:border-primary"
                 />
               </div>
             ))}
@@ -139,13 +140,13 @@ export function ComparePage() {
         </section>
 
         {validationError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300" role="alert">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert">
             {validationError}
           </div>
         ) : null}
 
         {serverError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300" role="alert">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert">
             {serverError}
           </div>
         ) : null}
@@ -154,7 +155,7 @@ export function ComparePage() {
           <button
             onClick={handleCompare}
             disabled={isPending || !canCompare}
-            className="flex items-center gap-2 rounded-lg bg-primary px-10 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-primary px-10 py-3 font-semibold text-white shadow-[0_0_20px_rgba(14,165,160,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : null}
             {isPending ? 'Comparing...' : `Compare ${jds.length} Jobs`}
@@ -163,7 +164,7 @@ export function ComparePage() {
 
         {data ? (
           <div className="space-y-6">
-            <div className="rounded-lg border border-primary/30 bg-primary-subtle p-6">
+            <div className="rounded-2xl border border-primary/30 bg-primary-subtle p-6 shadow-card">
               <div className="flex items-start gap-3">
                 <Trophy size={20} className="mt-0.5 flex-shrink-0 text-primary" aria-hidden="true" />
                 <div>
@@ -187,12 +188,12 @@ export function ComparePage() {
                 return (
                   <div
                     key={`${result.job_title}-${i}`}
-                    className={`rounded-lg bg-surface p-6 border-2 ${isRecommended ? 'border-primary' : 'border-line'}`}
+                    className={`rounded-2xl bg-surface p-6 border-2 shadow-card ${isRecommended ? 'border-primary' : 'border-line'}`}
                   >
                     {result.error ? (
                       <div>
                         <h3 className="mb-1 text-sm font-semibold">{result.job_title}</h3>
-                        <p className="text-xs text-red-400">{result.error}</p>
+                        <p className="text-xs text-red-600">{result.error}</p>
                       </div>
                     ) : (
                       <>
@@ -208,9 +209,9 @@ export function ComparePage() {
                           style={{
                             color:
                               result.scores.overall >= 80
-                                ? '#10B981'
+                                ? '#0EA5A0'
                                 : result.scores.overall >= 60
-                                  ? '#F59E0B'
+                                  ? '#F97316'
                                   : '#EF4444',
                           }}
                         >
@@ -230,7 +231,7 @@ export function ComparePage() {
                             <div className="mb-1 text-xs text-textMuted">Key Gaps</div>
                             <div className="flex flex-wrap gap-1">
                               {result.missing_skills.slice(0, 4).map((s) => (
-                                <span key={s} className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 font-mono text-xs text-red-400">
+                                <span key={s} className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 font-mono text-xs text-red-700">
                                   {s}
                                 </span>
                               ))}

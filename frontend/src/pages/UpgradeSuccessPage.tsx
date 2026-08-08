@@ -19,7 +19,7 @@ export default function UpgradeSuccessPage() {
         </p>
         <Link
           to="/"
-          className="mt-6 inline-flex rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
+          className="mt-6 inline-flex rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
         >
           Start analyzing
         </Link>

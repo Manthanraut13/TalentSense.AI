@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
-import { Briefcase, ExternalLink, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Briefcase, Clock3, ExternalLink, Loader2, MoreHorizontal, PartyPopper, Pencil, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { useApplications } from '../hooks/useApplications';
 import type { Application, ApplicationStatus } from '../types';
@@ -26,24 +26,18 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
   rejected: 'Rejected',
 };
 
-const STATUS_DOT: Record<ApplicationStatus, string> = {
-  saved: 'bg-slate-400',
-  applied: 'bg-blue-500',
-  phone_screen: 'bg-violet-500',
-  technical: 'bg-amber-500',
-  final_round: 'bg-orange-500',
-  offer: 'bg-emerald-500',
-  rejected: 'bg-red-500',
-};
-
 function matchScoreBadge(score: number) {
   const cls =
     score >= 75
-      ? 'bg-emerald-500/15 text-emerald-400'
+      ? 'bg-primary/10 text-primary'
       : score >= 50
-        ? 'bg-amber-500/15 text-amber-400'
-        : 'bg-red-500/15 text-red-400';
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{score}% match</span>;
+        ? 'bg-secondary/10 text-secondary'
+        : 'bg-red-500/10 text-red-700';
+  return (
+    <span className={`rounded-md px-2 py-1 text-xs font-medium ${cls}`}>
+      {score}% Match
+    </span>
+  );
 }
 
 function formatDate(value: string) {
@@ -95,7 +89,7 @@ function NotesEditor({
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-full resize-y rounded-md border border-line bg-base p-2 text-xs text-textPrimary outline-none focus:border-primary"
+        className="w-full resize-y rounded-lg border border-line bg-surface p-2 text-xs text-textPrimary outline-none focus:border-primary"
         rows={2}
         aria-label="Application notes"
       />
@@ -135,11 +129,11 @@ function ApplicationCard({
   onSaveNotes: (id: string, notes: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-4">
-      <div className="flex items-start justify-between gap-2">
+    <div className="group rounded-lg bg-surface p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="mb-1 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="truncate font-semibold text-textPrimary">{app.company}</h3>
+            <h4 className="truncate font-semibold text-textPrimary">{app.company}</h4>
             {app.job_url ? (
               <a
                 href={app.job_url}
@@ -169,7 +163,7 @@ function ApplicationCard({
         <select
           value={app.status}
           onChange={(e) => onChangeStatus(app.application_id, e.target.value as ApplicationStatus)}
-          className="flex-1 rounded-md border border-line bg-base px-2 py-1.5 text-xs text-textPrimary outline-none focus:border-primary"
+          className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-textPrimary outline-none focus:border-primary"
           aria-label={`Change status for ${app.company}`}
         >
           {STATUS_ORDER.map((s) => (
@@ -180,7 +174,7 @@ function ApplicationCard({
         </select>
         <button
           onClick={() => onDelete(app.application_id)}
-          className="shrink-0 rounded-md border border-line p-1.5 text-textMuted transition hover:border-red-500/40 hover:text-red-400"
+          className="shrink-0 rounded-lg border border-line p-1.5 text-textMuted transition hover:border-red-500/40 hover:text-red-600"
           aria-label={`Delete application at ${app.company}`}
         >
           <Trash2 size={14} />
@@ -310,48 +304,101 @@ export default function Applications() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
+    <main className="mx-auto max-w-[1280px] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold">
-            <Briefcase className="text-primary" size={24} />
-            My Applications
-          </h1>
+          <h1 className="text-3xl font-bold text-textPrimary">Applications</h1>
           <p className="mt-1 text-sm text-textSecondary">
             Track every job you are pursuing in one place.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link to="/" className="rounded-md border border-line px-3 py-2 text-sm text-textSecondary hover:bg-elevated">
-            Back to Home
-          </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-64">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary"
+              aria-hidden="true"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg bg-surface py-2 pl-9 pr-3 text-sm text-textPrimary shadow-card outline-none placeholder:text-textSecondary focus:ring-2 focus:ring-primary/20"
+              placeholder="Search applications..."
+              aria-label="Search applications"
+            />
+          </div>
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-hover"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover"
           >
-            {showForm ? <X size={14} /> : <Plus size={14} />}
+            {showForm ? <X size={16} /> : <Plus size={16} />}
             {showForm ? 'Close' : 'Add Application'}
           </button>
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
         {[
-          { label: 'Total', value: totals.total },
-          { label: 'Applied', value: totals.applied },
-          { label: 'In Progress', value: totals.inProgress },
-          { label: 'Offers', value: totals.offers },
-          { label: 'Rejected', value: totals.rejected },
-        ].map(({ label, value }) => (
-          <div key={label} className="rounded-lg border border-line bg-surface p-3 text-center">
-            <div className="text-2xl font-bold text-textPrimary">{value}</div>
-            <div className="text-xs text-textSecondary">{label}</div>
+          {
+            label: 'Total',
+            value: totals.total,
+            color: '#64748B',
+            circle: 'bg-[#F1F5F9] text-[#64748B]',
+            border: 'border-[#64748B]',
+            icon: Briefcase,
+          },
+          {
+            label: 'Applied',
+            value: totals.applied,
+            color: '#3B82F6',
+            circle: 'bg-[#EFF6FF] text-[#3B82F6]',
+            border: 'border-[#3B82F6]',
+            icon: Send,
+          },
+          {
+            label: 'In Progress',
+            value: totals.inProgress,
+            color: '#F59E0B',
+            circle: 'bg-[#FEF3C7] text-[#F59E0B]',
+            border: 'border-[#F59E0B]',
+            icon: Clock3,
+          },
+          {
+            label: 'Offers',
+            value: totals.offers,
+            color: '#10B981',
+            circle: 'bg-[#D1FAE5] text-[#10B981]',
+            border: 'border-[#10B981]',
+            icon: PartyPopper,
+          },
+          {
+            label: 'Rejected',
+            value: totals.rejected,
+            color: '#EF4444',
+            circle: 'bg-[#FEE2E2] text-[#EF4444]',
+            border: 'border-[#EF4444]',
+            icon: X,
+          },
+        ].map(({ label, value, circle, border, icon: Icon }) => (
+          <div
+            key={label}
+            className={`flex items-center gap-3 rounded-xl border-l-4 bg-surface p-4 shadow-card ${border}`}
+          >
+            <span
+              className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${circle}`}
+            >
+              <Icon size={22} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-textSecondary">{label}</p>
+              <p className="text-2xl font-bold text-textPrimary">{value}</p>
+            </div>
           </div>
         ))}
       </div>
 
       {showForm ? (
-        <form onSubmit={handleAdd} noValidate className="mb-6 rounded-lg border border-line bg-surface p-5">
+        <form onSubmit={handleAdd} noValidate className="mb-6 rounded-2xl border border-line bg-surface p-5 shadow-card">
           <h2 className="mb-4 text-lg font-semibold">Add a job to your tracker</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -359,7 +406,7 @@ export default function Applications() {
               <input
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-                className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
                 placeholder="Acme Corp"
                 required
               />
@@ -369,7 +416,7 @@ export default function Applications() {
               <input
                 value={form.role}
                 onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
                 placeholder="Senior Backend Engineer"
                 required
               />
@@ -380,7 +427,7 @@ export default function Applications() {
                 type="url"
                 value={form.job_url}
                 onChange={(e) => setForm((f) => ({ ...f, job_url: e.target.value }))}
-                className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
                 placeholder="https://..."
               />
             </label>
@@ -392,7 +439,7 @@ export default function Applications() {
                 max={100}
                 value={form.match_score}
                 onChange={(e) => setForm((f) => ({ ...f, match_score: e.target.value }))}
-                className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
                 placeholder="e.g. 82"
               />
             </label>
@@ -402,7 +449,7 @@ export default function Applications() {
                 type="date"
                 value={form.applied_date}
                 onChange={(e) => setForm((f) => ({ ...f, applied_date: e.target.value }))}
-                className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
               />
             </label>
             <div className="sm:col-span-2">
@@ -411,7 +458,7 @@ export default function Applications() {
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  className="w-full resize-y rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
+                  className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
                   rows={2}
                   placeholder="Referral, recruiter contact, salary info..."
                 />
@@ -420,7 +467,7 @@ export default function Applications() {
           </div>
 
           {formError ? (
-            <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300" role="alert">
+            <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700" role="alert">
               {formError}
             </p>
           ) : null}
@@ -439,18 +486,18 @@ export default function Applications() {
       ) : null}
 
       {error ? (
-        <div className="rounded-lg border border-line bg-surface p-5 text-textSecondary">
+        <div className="rounded-2xl border border-line bg-surface p-5 text-textSecondary shadow-card">
           Could not load your applications: {error.message}
         </div>
       ) : null}
 
       {!isLoading && applications && applications.length === 0 ? (
-        <div className="rounded-lg border border-line bg-surface p-8 text-center">
+        <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
           <Briefcase className="mx-auto mb-3 text-textMuted" size={32} />
           <p className="text-textSecondary">No applications tracked yet.</p>
           <button
             onClick={() => setShowForm(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-hover"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-hover"
           >
             <Plus size={14} /> Add your first application
           </button>
@@ -460,33 +507,28 @@ export default function Applications() {
       {isLoading ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {STATUS_ORDER.map((s) => (
-            <div key={s} className="h-40 w-72 flex-shrink-0 animate-pulse rounded-lg bg-surface" />
+            <div key={s} className="h-40 w-72 flex-shrink-0 animate-pulse rounded-2xl bg-surface" />
           ))}
         </div>
       ) : applications && applications.length > 0 ? (
         <>
-          <div className="mb-4">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full max-w-xs rounded-lg border border-line bg-base px-3 py-2 text-sm text-textPrimary outline-none focus:border-primary"
-              placeholder="Search company or role..."
-              aria-label="Search applications"
-            />
-          </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {STATUS_ORDER.map((status) => (
-              <section key={status} className="w-72 flex-shrink-0 rounded-lg border border-line bg-surface/60 p-3">
-                <header className="mb-3 flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-sm font-medium text-textSecondary">
-                    <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
+              <section key={status} className="flex w-80 flex-shrink-0 flex-col rounded-xl bg-elevated p-2">
+                <header className="mb-2 flex items-center justify-between px-2 pt-1">
+                  <h3 className="text-sm font-semibold text-textPrimary">
                     {STATUS_LABELS[status]}
-                  </span>
-                  <span className="rounded-full bg-elevated px-2 py-0.5 text-xs text-textMuted">
-                    {grouped[status].length}
-                  </span>
+                    <span className="ml-2 text-sm font-normal text-textSecondary">({grouped[status].length})</span>
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-textSecondary transition-colors hover:text-primary"
+                    aria-label={`${STATUS_LABELS[status]} column options`}
+                  >
+                    <MoreHorizontal size={20} aria-hidden="true" />
+                  </button>
                 </header>
-                <div className="space-y-3">
+                <div className="flex flex-col gap-2 overflow-y-auto">
                   {grouped[status].map((app) => (
                     <ApplicationCard
                       key={app.application_id}
@@ -496,6 +538,9 @@ export default function Applications() {
                       onSaveNotes={(id, notes) => void editApplication({ id, notes }).catch(() => {})}
                     />
                   ))}
+                  {grouped[status].length === 0 ? (
+                    <p className="px-2 py-3 text-center text-xs text-textMuted">No applications</p>
+                  ) : null}
                 </div>
               </section>
             ))}

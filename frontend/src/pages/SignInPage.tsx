@@ -9,15 +9,15 @@ export default function SignInPage() {
         afterSignInUrl="/"
         appearance={{
           variables: {
-            colorPrimary: '#10B981',
-            colorBackground: '#1A1A1A',
-            colorText: '#F5F5F5',
-            colorInputBackground: '#242424',
-            colorInputText: '#F5F5F5',
+            colorPrimary: '#0EA5A0',
+            colorBackground: '#F0F4F8',
+            colorText: '#171D1C',
+            colorInputBackground: '#FFFFFF',
+            colorInputText: '#171D1C',
           },
           elements: {
-            card: 'bg-surface border border-line',
-            formButtonPrimary: 'bg-primary hover:bg-primary-hover',
+            card: 'bg-surface border border-line rounded-2xl shadow-cardLg',
+            formButtonPrimary: 'bg-primary hover:bg-primary-hover text-white',
           },
         }}
       />

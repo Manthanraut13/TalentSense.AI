@@ -7,7 +7,7 @@ export default function UsageBadge() {
 
   if (usage?.is_pro) {
     return (
-      <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+      <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         <Zap size={12} aria-hidden="true" />
         <span>Pro — Unlimited</span>
       </div>
@@ -16,10 +16,10 @@ export default function UsageBadge() {
 
   if (!isLoading && usage && usage.limit > 0) {
     return (
-      <div className="flex items-center gap-1.5 text-xs font-medium text-textSecondary">
+      <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         <Zap size={12} aria-hidden="true" />
         <span>
-          {usage.remaining} / {usage.limit} left today
+          {usage.used} / {usage.limit} analyses
         </span>
       </div>
     );

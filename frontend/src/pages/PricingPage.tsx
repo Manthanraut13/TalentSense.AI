@@ -56,21 +56,21 @@ export default function PricingPage() {
 
       <div className="grid gap-5 md:grid-cols-2">
         <PlanPanel name="Free" price="$0" features={FREE_FEATURES}>
-          <div className="rounded-md border border-line px-4 py-3 text-center text-sm text-textSecondary">
+          <div className="rounded-xl border border-line px-4 py-3 text-center text-sm text-textSecondary">
             {billing?.is_pro ? 'Included with Pro' : 'Current plan'}
           </div>
         </PlanPanel>
 
         <PlanPanel name="Pro" price="$9/mo" features={PRO_FEATURES} highlighted>
           {billing?.is_pro ? (
-            <div className="rounded-md border border-primary/30 bg-primary-subtle px-4 py-3 text-center text-sm font-medium text-primary">
+            <div className="rounded-xl border border-primary/30 bg-primary-subtle px-4 py-3 text-center text-sm font-medium text-primary">
               Your current plan
             </div>
           ) : (
             <button
               onClick={handleUpgrade}
               disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Zap size={16} />
               {loading ? 'Redirecting...' : 'Upgrade to Pro'}
@@ -80,7 +80,7 @@ export default function PricingPage() {
       </div>
 
       {error ? (
-        <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+        <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700">
           {error}
         </div>
       ) : null}
@@ -102,7 +102,12 @@ function PlanPanel({
   children: ReactNode;
 }) {
   return (
-    <section className={`rounded-lg border bg-surface p-6 ${highlighted ? 'border-primary' : 'border-line'}`}>
+    <section className={`relative rounded-2xl border bg-surface p-6 shadow-card ${highlighted ? 'border-primary' : 'border-line'}`}>
+      {highlighted ? (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+          Most popular
+        </span>
+      ) : null}
       <div className="mb-5">
         <h2 className="text-xl font-semibold">{name}</h2>
         <p className="mt-2 text-3xl font-bold">{price}</p>

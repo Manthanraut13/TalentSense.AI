@@ -5,7 +5,7 @@ import { useLearningPlan } from '../hooks/useLearningPlan';
 import type { LearningResource, SkillPlan } from '../types';
 
 const PRIORITY_STYLES: Record<SkillPlan['priority'], string> = {
-  high: 'border-red-500/20 bg-red-500/10 text-red-400',
+  high: 'border-red-500/20 bg-red-500/10 text-red-700',
   medium: 'border-secondary/20 bg-secondary-subtle text-secondary',
   low: 'border-primary/20 bg-primary-subtle text-primary',
 };
@@ -17,17 +17,20 @@ const RESOURCE_ICONS: Record<LearningResource['type'], typeof BookOpen> = {
   article: BookOpen,
 };
 
-function SkillPlanCard({ plan }: { plan: SkillPlan }) {
+function SkillPlanCard({ plan, index }: { plan: SkillPlan; index: number }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface">
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-elevated"
         aria-expanded={expanded}
       >
-        <span className="font-mono text-sm font-semibold">{plan.skill}</span>
+        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 font-mono text-xs font-semibold text-primary">
+          {index + 1}
+        </span>
+        <span className="font-mono text-sm font-semibold text-textPrimary">{plan.skill}</span>
         <span className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[plan.priority]}`}>
           {plan.priority.toUpperCase()}
         </span>
@@ -107,10 +110,15 @@ export default function LearningRoadmap({
   };
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-5">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="mb-4 flex items-center gap-2">
-        <Map size={16} className="text-primary" aria-hidden="true" />
-        <h2 className="text-xl font-semibold">Skill Gap Learning Roadmap</h2>
+        <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary/10 text-primary">
+          <Map size={16} aria-hidden="true" />
+        </span>
+        <h2 className="text-sm font-semibold text-textPrimary">Learning Roadmap</h2>
+        <span className="ml-auto rounded-full border border-line bg-elevated px-2 py-0.5 text-[10px] text-textMuted">
+          {missingSkills.length} skills to learn
+        </span>
       </div>
 
       {!fetched ? (
@@ -131,7 +139,7 @@ export default function LearningRoadmap({
           Finding the best free resources for your gaps...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300" role="alert">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert">
           Could not generate learning plans. Please try again.
         </div>
       ) : data?.plans ? (
@@ -141,8 +149,8 @@ export default function LearningRoadmap({
               const order = { high: 0, medium: 1, low: 2 };
               return order[a.priority] - order[b.priority];
             })
-            .map((plan) => (
-              <SkillPlanCard key={plan.skill} plan={plan} />
+            .map((plan, index) => (
+              <SkillPlanCard key={plan.skill} plan={plan} index={index} />
             ))}
         </div>
       ) : null}

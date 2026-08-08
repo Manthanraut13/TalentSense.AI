@@ -26,8 +26,8 @@ export default function Coach() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] bg-base">
-      <div className="border-b border-line px-6 py-4 bg-surface">
+    <div className="flex flex-col h-[calc(100vh-60px)] bg-base">
+      <div className="border-b border-line px-6 py-4 bg-elevated">
         <div className="flex items-center gap-2">
           <Bot size={18} className="text-primary" />
           <h1 className="font-semibold text-textPrimary">AI Career Coach</h1>
@@ -95,7 +95,7 @@ export default function Coach() {
         </div>
       )}
 
-      <div className="border-t border-line px-6 py-4 bg-surface">
+      <div className="border-t border-line px-6 py-4 bg-elevated">
         <div className="flex gap-3">
           <textarea
             value={input}
@@ -103,7 +103,7 @@ export default function Coach() {
             onKeyDown={handleKeyDown}
             placeholder="Ask your career coach anything..."
             rows={1}
-            className="flex-1 bg-elevated border border-line rounded-xl px-4 py-3 text-sm text-textPrimary placeholder:text-textMuted resize-none focus:outline-none focus:border-primary"
+            className="flex-1 bg-surface border border-line rounded-xl px-4 py-3 text-sm text-textPrimary placeholder:text-textMuted resize-none focus:outline-none focus:border-primary"
           />
           <button
             onClick={handleSend}

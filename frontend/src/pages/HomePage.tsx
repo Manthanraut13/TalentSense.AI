@@ -3,15 +3,87 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlignLeft, Briefcase, FileText, Upload, Zap, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  AlignLeft,
+  ArrowRight,
+  BarChart3,
+  Briefcase,
+  Check,
+  FileText,
+  Lightbulb,
+  Loader2,
+  Sparkles,
+  Upload,
+  User,
+  X,
+  Zap,
+  AlertTriangle,
+} from 'lucide-react';
 
 import { HistorySidebar } from '../components/HistorySidebar';
 import { analyzeResume } from '../lib/api';
 import { useAuth } from '@clerk/clerk-react';
 import { validateResumeText, validateJD, validatePDFFile } from '../lib/validators';
 
-
 type InputMode = 'text' | 'pdf';
+type StepState = 'done' | 'active' | 'upcoming';
+
+function Step({
+  icon: Icon,
+  label,
+  state,
+}: {
+  icon: typeof User;
+  label: string;
+  state: StepState;
+}) {
+  return (
+    <div className="group flex flex-col items-center gap-2">
+      <div
+        className={`relative flex h-10 w-10 items-center justify-center rounded-full shadow-sm transition-transform group-hover:scale-110 ${
+          state === 'upcoming' ? 'bg-surfaceVariant text-textSecondary' : 'bg-primary text-white'
+        }`}
+      >
+        {state === 'active' ? (
+          <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" aria-hidden="true" />
+        ) : null}
+        {state === 'done' ? <Check size={20} aria-hidden="true" /> : <Icon size={20} aria-hidden="true" />}
+      </div>
+      <span className={`text-xs font-medium ${state === 'upcoming' ? 'text-textMuted' : 'text-primary'}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function InsightCard({
+  icon: Icon,
+  tileClass,
+  blobClass,
+  title,
+  body,
+}: {
+  icon: typeof Lightbulb;
+  tileClass: string;
+  blobClass: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="group relative flex-1 overflow-hidden rounded-2xl bg-surface p-6 shadow-card transition hover:shadow-cardHover">
+      <div className={`absolute right-0 top-0 h-24 w-24 rounded-bl-full ${blobClass} transition-transform group-hover:scale-110`} aria-hidden="true" />
+      <div className="flex items-center gap-4">
+        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full shadow-sm ${tileClass}`}>
+          <Icon size={22} className="text-white" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-textPrimary">{title}</h3>
+          <p className="mt-0.5 text-sm text-textSecondary">{body}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -34,6 +106,7 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [showColdStartWarning, setShowColdStartWarning] = useState(false);
+  const [coldStartDismissed, setColdStartDismissed] = useState(false);
   const coldStartTimerRef = useRef<number | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -122,6 +195,7 @@ export function HomePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setColdStartDismissed(false);
     console.debug('[HomePage] Submit started', { inputMode, jdLength: jdText.length });
 
     if (!isSignedIn) {
@@ -180,206 +254,220 @@ try {
     }
   };
 
+  const steps: { label: string; icon: typeof User }[] = [
+    { label: 'Profile', icon: User },
+    { label: 'Resume', icon: FileText },
+    { label: 'Job Desc', icon: Briefcase },
+    { label: 'Analysis', icon: BarChart3 },
+  ];
+  const currentStep = isSubmitting ? Math.min(activeStep, steps.length) : 1;
+
   return (
     <div className="min-h-screen bg-base">
-      <main className="mx-auto max-w-7xl px-4 py-8 lg:grid lg:grid-cols-[288px_1fr] lg:gap-6">
+      <main className="mx-auto max-w-[1280px] px-6 py-8 lg:grid lg:grid-cols-[288px_1fr] lg:gap-6">
         <HistorySidebar />
 
-        <div className="lg:col-span-1">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold">Analyze your resume against any job</h1>
-            <p className="mt-2 max-w-2xl text-sm text-textSecondary">
-              Upload or paste a resume, paste a job description, and get a structured match report.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            <div className="grid gap-5 lg:grid-cols-2">
-              <section className="rounded-lg border border-line bg-surface p-5">
-                <h2 className="flex items-center gap-2 text-xl font-semibold">
-                  <FileText className="text-primary" size={20} />
-                  Resume
-                </h2>
-                <div className="mt-4 grid grid-cols-2 rounded-lg border border-line bg-base p-1">
-                  <button
-                    type="button"
-                    onClick={() => setInputMode('text')}
-                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${
-                      inputMode === 'text' ? 'bg-primary text-white' : 'text-textSecondary'
-                    }`}
-                    aria-pressed={inputMode === 'text'}
-                    aria-label="Paste resume text"
-                  >
-                    <AlignLeft size={16} aria-hidden="true" />
-                    Paste
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInputMode('pdf')}
-                    className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${
-                      inputMode === 'pdf' ? 'bg-primary text-white' : 'text-textSecondary'
-                    }`}
-                    aria-pressed={inputMode === 'pdf'}
-                    aria-label="Upload PDF resume"
-                  >
-                    <Upload size={16} aria-hidden="true" />
-                    PDF
-                  </button>
-                </div>
-
-                {inputMode === 'text' ? (
-                  <textarea
-                    value={resumeText}
-                    onChange={(e) => setResumeText(e.target.value)}
-                    className="mt-4 min-h-72 w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
-                    placeholder="Paste your resume text here..."
-                    required
-                    aria-required="true"
-                    aria-describedby="resume-help"
-                  />
-                ) : (
-                  <label className="mt-4 flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-line bg-base p-6 text-center transition hover:border-primary">
-                    <Upload className="mb-3 text-primary" size={28} aria-hidden="true" />
-                    <span className="font-medium">{resumeFile ? resumeFile.name : 'Drop your PDF here'}</span>
-                    <span className="mt-2 text-sm text-textSecondary">PDF only, max 5MB</span>
-                    <input
-                      className="sr-only"
-                      type="file"
-                      accept="application/pdf"
-                      required
-                      aria-required="true"
-                      onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                )}
-              </section>
-
-              <section className="rounded-lg border border-line bg-surface p-5">
-                <h2 className="flex items-center gap-2 text-xl font-semibold">
-                  <Briefcase className="text-secondary" size={20} />
-                  Job Description
-                </h2>
-                <div className="flex gap-2 mt-2 items-center">
-                  <button
-                    type="button"
-                    onClick={() => { setJdMode('paste'); setJdSuccess(''); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm transition-colors ${
-                      jdMode === 'paste' ? 'bg-primary text-white' : 'text-textSecondary'
-                    }`}
-                  >
-                    Paste
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setJdMode('url'); setJdSuccess(''); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm transition-colors ${
-                      jdMode === 'url' ? 'bg-primary text-white' : 'text-textSecondary'
-                    }`}
-                  >
-                    URL
-                  </button>
-                </div>
-
-                {jdMode === 'paste' ? (
-                  <textarea
-                    value={jdText}
-                    onChange={(e) => { setJdText(e.target.value); setJdSuccess(''); }}
-                    className="mt-4 min-h-[336px] w-full resize-y rounded-lg border border-line bg-base p-4 text-sm outline-none focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base"
-                    placeholder="Paste the full job description here..."
-                    required
-                    aria-required="true"
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    <input
-                      type="url"
-                      value={jdUrl}
-                      onChange={(e) => { setJdUrl(e.target.value); setJdSuccess(''); setJdText(''); }}
-                      placeholder="https://linkedin.com/jobs/view/..."
-                      className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => scrapeMutation.mutate(jdUrl)}
-                      disabled={!jdUrl || scrapeMutation.isPending}
-                      className="w-full bg-secondary text-black font-semibold py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {scrapeMutation.isPending && <Loader2 size={14} className="animate-spin" />}
-                      {scrapeMutation.isPending ? 'Fetching JD...' : 'Fetch Job Description'}
-                    </button>
-                    {jdText ? (
-                      <div className="rounded-lg border border-line bg-base p-3">
-                        <div className="mb-1 flex items-center justify-between">
-                          <p className="text-xs text-textSecondary">
-                            Fetched job description — review it, then click Analyze Now.
-                          </p>
-                          <span className="ml-2 shrink-0 text-xs text-textSecondary">
-                            {jdText.length.toLocaleString()} chars
-                          </span>
-                        </div>
-                        <textarea
-                          readOnly
-                          value={jdText}
-                          className="max-h-48 min-h-24 w-full resize-y rounded-md border border-line bg-elevated p-3 text-xs text-textPrimary outline-none"
-                          aria-label="Fetched job description preview"
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </section>
+        <div>
+          {showColdStartWarning && !coldStartDismissed ? (
+            <div className="mb-4 flex w-full items-center justify-between gap-4 rounded-2xl bg-secondary/10 p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="flex-shrink-0 text-secondary" size={20} aria-hidden="true" />
+                <p className="text-sm text-textSecondary">
+                  <span className="font-semibold text-textPrimary">Cold Start Warning:</span> The first
+                  analysis may take up to 45 seconds to initialize the models. Subsequent analyses will be
+                  significantly faster.
+                </p>
+              </div>
+              <button
+                onClick={() => setColdStartDismissed(true)}
+                className="flex-shrink-0 text-textSecondary transition-colors hover:text-textPrimary"
+                aria-label="Dismiss warning"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
+          ) : null}
 
-            {error ? (
-              <div
-                ref={errorRef}
-                tabIndex={-1}
-                className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300"
-                role="alert"
-                aria-live="assertive"
-              >
-                {error}
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="relative overflow-hidden rounded-2xl bg-surface p-8 shadow-card">
+              <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/5 blur-3xl" aria-hidden="true" />
+              <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-secondary/5 blur-3xl" aria-hidden="true" />
+
+              <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-8">
+                <div className="relative flex w-full items-center justify-between">
+                  <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-surfaceVariant" aria-hidden="true" />
+                  {steps.map(({ label, icon }, i) => (
+                    <Step
+                      key={label}
+                      icon={icon}
+                      label={label}
+                      state={i < currentStep ? 'done' : i === currentStep ? 'active' : 'upcoming'}
+                    />
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 gap-8 pt-2 md:grid-cols-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="text-primary" size={20} aria-hidden="true" />
+                      <h2 className="text-lg font-semibold text-textPrimary">Upload Resume</h2>
+                    </div>
+                    <div className="grid grid-cols-2 rounded-xl border border-line bg-elevated p-1">
+                      <button
+                        type="button"
+                        onClick={() => setInputMode('text')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                          inputMode === 'text' ? 'bg-primary text-white shadow-card' : 'text-textSecondary'
+                        }`}
+                        aria-pressed={inputMode === 'text'}
+                        aria-label="Paste resume text"
+                      >
+                        <AlignLeft size={16} aria-hidden="true" />
+                        Paste
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInputMode('pdf')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                          inputMode === 'pdf' ? 'bg-primary text-white shadow-card' : 'text-textSecondary'
+                        }`}
+                        aria-pressed={inputMode === 'pdf'}
+                        aria-label="Upload PDF resume"
+                      >
+                        <Upload size={16} aria-hidden="true" />
+                        PDF
+                      </button>
+                    </div>
+
+                    {inputMode === 'text' ? (
+                      <textarea
+                        value={resumeText}
+                        onChange={(e) => setResumeText(e.target.value)}
+                        className="min-h-56 w-full resize-none rounded-xl border-2 border-outlineVariant bg-containerLow p-4 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Paste your resume text here..."
+                        required
+                        aria-required="true"
+                        aria-describedby="resume-help"
+                      />
+                    ) : (
+                      <label className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-outlineVariant bg-containerLow p-6 text-center transition-colors hover:border-primary hover:bg-containerLow">
+                        <Upload
+                          className="mb-3 text-outlineVariant transition-all duration-300 group-hover:scale-110 group-hover:text-primary"
+                          size={48}
+                          aria-hidden="true"
+                        />
+                        <p className="mb-1 text-sm text-textSecondary">
+                          <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-textMuted">
+                          {resumeFile ? `Selected: ${resumeFile.name}` : 'PDF only, max 5MB'}
+                        </p>
+                        <input
+                          className="sr-only"
+                          type="file"
+                          accept="application/pdf"
+                          required
+                          aria-required="true"
+                          onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="text-secondary" size={20} aria-hidden="true" />
+                      <h2 className="text-lg font-semibold text-textPrimary">Job Description</h2>
+                    </div>
+                    <div className="flex h-64 flex-col overflow-hidden rounded-xl border-2 border-outlineVariant bg-containerLow transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                      <div className="z-10 mb-1 flex w-full items-center gap-2 rounded-lg bg-surface p-2 shadow-sm">
+                        <X size={14} className="flex-shrink-0 text-textMuted" aria-hidden="true" />
+                        <input
+                          type="url"
+                          value={jdUrl}
+                          onChange={(e) => { setJdUrl(e.target.value); setJdSuccess(''); }}
+                          placeholder="Paste Job URL (LinkedIn, Indeed, etc.)"
+                          className="w-full bg-transparent text-sm text-textPrimary outline-none placeholder:text-textMuted"
+                          aria-label="Job posting URL"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => scrapeMutation.mutate(jdUrl)}
+                          disabled={!jdUrl || scrapeMutation.isPending}
+                          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-elevated px-3 py-1.5 text-xs font-medium text-textSecondary transition-colors hover:bg-surfaceVariant disabled:opacity-50"
+                        >
+                          {scrapeMutation.isPending ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Sparkles size={12} aria-hidden="true" />}
+                          {scrapeMutation.isPending ? 'Fetching...' : 'Fetch'}
+                        </button>
+                      </div>
+                      <textarea
+                        value={jdText}
+                        onChange={(e) => { setJdText(e.target.value); setJdSuccess(''); }}
+                        placeholder="Or paste full job description here..."
+                        className="z-10 min-h-0 w-full flex-1 resize-none bg-transparent p-3 text-sm text-textPrimary outline-none placeholder:text-textMuted"
+                        required
+                        aria-required="true"
+                      />
+                      <div className="z-10 self-end p-2 text-[11px] text-textMuted">
+                        {jdText.length.toLocaleString()} / 5000 chars
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {error ? (
+                  <div ref={errorRef} tabIndex={-1} className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert" aria-live="assertive">
+                    {error}
+                  </div>
+                ) : null}
+                {resumeError ? (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert">
+                    {resumeError}
+                  </div>
+                ) : null}
+                {jdError ? (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700" role="alert">
+                    {jdError}
+                  </div>
+                ) : null}
+                {jdSuccess ? (
+                  <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm text-primary" role="status" aria-live="polite">
+                    {jdSuccess}
+                  </div>
+                ) : null}
+
+                <div className="flex w-full justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || (jdMode === 'url' && !jdText.trim())}
+                    className="group relative flex items-center gap-2 overflow-hidden rounded-lg bg-primary px-8 py-3 text-base font-semibold text-white shadow-md transition-all hover:bg-primary-hover hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="absolute inset-0 translate-x-[-100%] bg-white/20 transition-transform duration-500 ease-in-out group-hover:translate-x-[100%]" aria-hidden="true" />
+                    {isSubmitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Zap size={18} aria-hidden="true" />}
+                    {isSubmitting ? 'Analyzing...' : 'Analyze Match'}
+                    <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
-            ) : null}
-
-            {resumeError ? (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                {resumeError}
-              </div>
-            ) : null}
-
-            {jdError ? (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                {jdError}
-              </div>
-            ) : null}
-
-            {jdSuccess ? (
-              <div
-                className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary"
-                role="status"
-                aria-live="polite"
-              >
-                {jdSuccess}
-              </div>
-            ) : null}
-
-            {showColdStartWarning && !error && !resumeError && !jdError && (
-              <div className="rounded-lg border border-secondary/30 bg-secondary/10 p-4 text-sm text-secondary flex items-center gap-2" role="status" aria-live="polite">
-                <AlertTriangle size={18} />
-                <span>Server is warming up (free tier cold start) — this may take ~30 seconds</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting || (jdMode === 'url' && !jdText.trim())}
-              className={`inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-primary-hover hover:shadow-[0_0_30px_rgba(16,185,129,0.40)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <Zap size={18} aria-hidden="true" />
-              {isSubmitting ? 'Analyzing...' : 'Analyze Now'}
-            </button>
+            </div>
           </form>
+
+          <div className="mt-6 flex flex-col gap-6 lg:flex-row">
+            <InsightCard
+              icon={Lightbulb}
+              tileClass="bg-[#D97B51]"
+              blobClass="bg-[#D97B51]/10"
+              title="Pro Tip"
+              body="Include specific metrics in your resume to boost your match score."
+            />
+            <InsightCard
+              icon={Sparkles}
+              tileClass="bg-secondary"
+              blobClass="bg-secondary/10"
+              title="AI Insights"
+              body="Our model highlights missing keywords relevant to the JD."
+            />
+          </div>
         </div>
       </main>
     </div>

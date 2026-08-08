@@ -23,7 +23,7 @@ function BlurredList({ count, label }: { count: number; label: string }) {
 }
 
 function scoreColor(score: number) {
-  return score >= 80 ? '#10B981' : score >= 60 ? '#F59E0B' : '#EF4444';
+  return score >= 80 ? '#0EA5A0' : score >= 60 ? '#F97316' : '#EF4444';
 }
 
 export default function ShareView() {
@@ -60,14 +60,16 @@ export default function ShareView() {
 
   return (
     <div className="min-h-screen bg-base">
-      <div className="border-b border-line bg-surface px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={16} className="text-primary" />
+      <div className="border-b border-line bg-elevated px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary text-white">
+            <TrendingUp size={16} />
+          </span>
           <span className="text-sm font-semibold text-textPrimary">Resume Analyzer</span>
         </div>
         <Link
           to="/sign-up"
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+          className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
         >
           Get my free analysis &rarr;
         </Link>
@@ -173,7 +175,7 @@ export default function ShareView() {
           </p>
           <Link
             to="/sign-up"
-            className="inline-block rounded-xl bg-primary px-8 py-3 font-semibold text-white transition hover:bg-primary-hover"
+            className="inline-block rounded-xl bg-secondary px-8 py-3 font-semibold text-white transition hover:opacity-90"
           >
             Analyze my resume for free &rarr;
           </Link>

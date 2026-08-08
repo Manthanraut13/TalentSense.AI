@@ -11,7 +11,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       </div>
     );
   }
-
   if (!isSignedIn) {
     return <Navigate to="/sign-in" replace />;
   }
