@@ -22,9 +22,9 @@ class Settings(BaseSettings):
     mongodb_collection: str = "analyses"
     # Privacy: store resume snippet (first 500 chars) in MongoDB. Default false for privacy.
     store_resume_snippet: bool = False
-    # Rate limiting
+    # Rate limiting (10 analyses/day — window is one day)
     rate_limit_requests: int = 10
-    rate_limit_window_seconds: int = 3600
+    rate_limit_window_seconds: int = 86400
     # Slow query logging: log MongoDB queries slower than this (ms)
     slow_query_threshold_ms: int = 100
     # Clerk auth

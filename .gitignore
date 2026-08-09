@@ -69,3 +69,7 @@ htmlcov/
 
 # Cache
 .cache/
+
+# Local agent artifacts
+.waylog/
+antigravity_export/

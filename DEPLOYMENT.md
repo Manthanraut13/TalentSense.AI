@@ -2,7 +2,7 @@
 
 Production guide for the full app (Phases 1–14): FastAPI backend, React/Vite frontend, and Chrome extension.
 
-> **Pro plan note:** Stripe billing is scaffolded but the pro tier is **on hold**. There is no feature gating — all users share the same daily rate limit (default 10 actions / hour, configurable). Do not add Stripe keys unless billing is re-enabled.
+> **Pro plan note:** Stripe billing is scaffolded but the pro tier is **on hold**. There is no feature gating — all users share the same daily rate limit (10 analyses / day, configurable). Do not add Stripe keys unless billing is re-enabled.
 
 ## Backend Deployment
 

@@ -32,7 +32,7 @@ def validate_resume_text(resume_text: str) -> ParsedResume:
     if len(cleaned) < MIN_RESUME_CHARS:
         logger.warning("Resume text too short: %d chars (min %d)", len(cleaned), MIN_RESUME_CHARS)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Resume text too short (minimum {MIN_RESUME_CHARS} characters)",
         )
 

@@ -5,7 +5,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 
 def init_sentry() -> None:
-    if not settings.sentry_dsn:
+    if not settings.sentry_dsn or settings.environment == "test":
         return
 
     sentry_sdk.init(

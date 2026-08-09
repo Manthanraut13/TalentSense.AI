@@ -1,3 +1,7 @@
+import os
+
+os.environ["SENTRY_DSN"] = ""
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 

@@ -61,14 +61,14 @@ async def analyze_resume(
         if not resume_text:
             logger.warning("Analysis aborted: resume_text missing for text mode")
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Resume text is required for text input mode",
             )
         resume_text = sanitize_text(resume_text, MAX_RESUME_CHARS, "Resume")
         if len(resume_text) < 200:
             logger.warning("Analysis aborted: resume_text too short after sanitization (%d chars)", len(resume_text))
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Resume text is too short after sanitization (minimum 200 characters)",
             )
         parsed_resume = validate_resume_text(resume_text)
@@ -76,7 +76,7 @@ async def analyze_resume(
         if resume_file is None:
             logger.warning("Analysis aborted: resume_file missing for pdf mode")
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Resume PDF is required for pdf input mode",
             )
         pdf_bytes = await resume_file.read()
@@ -88,14 +88,14 @@ async def analyze_resume(
         if len(resume_text) < 200:
             logger.warning("Analysis aborted: PDF resume too short after processing (%d chars)", len(resume_text))
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Resume is too short after processing (minimum 200 characters)",
             )
         parsed_resume = replace(parsed_resume, text=resume_text)
     else:
         logger.warning("Analysis aborted: invalid input_mode=%s", input_mode)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='input_mode must be either "text" or "pdf"',
         )
 
