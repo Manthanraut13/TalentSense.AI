@@ -34,7 +34,15 @@
       "https://www.linkedin.com/*",
       "https://www.indeed.com/*",
       "https://www.naukri.com/*",
-      "http://localhost:8000/*"
+      "https://resume-job-analyzer-uhg9.onrender.com/*"
     ]
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.5.1": true,
+    "@swc/core@1.15.47": true,
+    "esbuild@0.18.20": true,
+    "lmdb@2.7.11": true,
+    "msgpackr-extract@3.0.4": true,
+    "sharp@0.33.5": true
   }
 }

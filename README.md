@@ -133,7 +133,7 @@ CI runs backend tests on every push/PR (`.github/workflows/test.yml`).
 
 ## Deployment
 
-Render backend + Vercel frontend + extension build. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full production guide and checklist.
+Render backend + Vercel frontend + extension build. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full production guide and checklist. For the Chrome extension only (build, package, and free distribution via Edge Add-ons / Chrome Web Store / load-unpacked), see **[EXTENSION_DEPLOYMENT.md](EXTENSION_DEPLOYMENT.md)**.
 
 ## Project Structure
 

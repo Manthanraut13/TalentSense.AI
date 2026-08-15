@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-import type { AnalysisResult, Application, ApplicationStatus, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, CreateApplicationInput, DashboardStats, HistoryListResponse, LearningPlanResponse, PublicShareAnalysis, ShareResponse, UsageStatus } from '../types';
+import type { AnalysisResult, Application, ApplicationStatus, BillingStatus, CheckoutSessionResponse, CoachResponse, CompareResponse, CreateApplicationInput, DashboardStats, HistoryListResponse, LearningPlanResponse, PublicShareAnalysis, SavedResume, ShareResponse, UsageStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -118,6 +118,38 @@ export async function fetchAnalysis(analysisId: string) {
 
 export async function deleteAnalysis(analysisId: string) {
   const response = await api.delete(`${V1}/history/${analysisId}`);
+  return response.data;
+}
+
+export async function fetchResumes() {
+  const response = await api.get<SavedResume[]>(`${V1}/resumes`);
+  return response.data;
+}
+
+export async function createResume(params: {
+  name: string;
+  inputMode: 'text' | 'pdf';
+  resumeText?: string;
+  resumeFile?: File;
+}) {
+  const form = new FormData();
+  form.append('name', params.name);
+  form.append('input_mode', params.inputMode);
+
+  if (params.inputMode === 'text' && params.resumeText) {
+    form.append('resume_text', params.resumeText);
+  }
+
+  if (params.inputMode === 'pdf' && params.resumeFile) {
+    form.append('resume_file', params.resumeFile);
+  }
+
+  const response = await api.post<SavedResume>(`${V1}/resumes`, form);
+  return response.data;
+}
+
+export async function deleteResume(resumeId: string) {
+  const response = await api.delete(`${V1}/resumes/${resumeId}`);
   return response.data;
 }
 

@@ -11,22 +11,27 @@ def _get_resumes_collection():
     db = mongo_service._get_collection().database
     return db.resumes
 
-FREE_TIER_RESUME_LIMIT = 2
-PRO_TIER_RESUME_LIMIT = 20
+MAX_STORED_RESUMES = 3
 
 async def save_resume(user_id: str, name: str, content: str, is_pro: bool = False) -> dict:
-    """Save a named resume version for a user."""
-    limit = PRO_TIER_RESUME_LIMIT if is_pro else FREE_TIER_RESUME_LIMIT
+    """Save a named resume version for a user.
+
+    Up to 3 resumes are stored. When the cap is reached, the oldest resume is
+    evicted automatically to make room for the new one.
+    """
     collection = _get_resumes_collection()
     count = await collection.count_documents({"user_id": user_id})
 
-    if count >= limit:
-        logger.warning("Resume limit reached: user=%s, count=%d, limit=%d", user_id, count, limit)
-        raise ValueError(
-            f"Resume limit reached ({limit}). "
-            + ("Delete an existing resume to add a new one."
-               if is_pro else "Upgrade to Pro for up to 20 saved resumes.")
+    if count >= MAX_STORED_RESUMES:
+        oldest = await collection.find_one_and_delete(
+            {"user_id": user_id},
+            sort=[("created_at", 1)],
         )
+        if oldest:
+            logger.info(
+                "Resume cap reached — evicted oldest resume: user=%s, resume_id=%s",
+                user_id, oldest.get("_id"),
+            )
 
     doc = {
         "user_id": user_id,

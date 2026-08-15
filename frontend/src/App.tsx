@@ -18,6 +18,7 @@ const DashboardPage = lazy(() => import('./pages/Dashboard'));
 const CoachPage = lazy(() => import('./pages/Coach'));
 const ShareView = lazy(() => import('./pages/ShareView'));
 const ApplicationsPage = lazy(() => import('./pages/Applications'));
+const AccountPage = lazy(() => import('./pages/Account'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const UpgradeSuccessPage = lazy(() => import('./pages/UpgradeSuccessPage'));
 
@@ -162,6 +163,16 @@ export function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <AccountPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="*"
@@ -195,6 +206,9 @@ function MainNav() {
       </NavLink>
       <NavLink to="/applications" className={linkClass}>
         Applications
+      </NavLink>
+      <NavLink to="/account" className={linkClass}>
+        Account
       </NavLink>
       <NavLink to="/coach" className={linkClass}>
         Career Coach

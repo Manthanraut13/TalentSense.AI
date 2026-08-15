@@ -168,6 +168,12 @@ type Application = {
   status_history: ApplicationStatusHistory[];
 };
 
+type SavedResume = {
+  resume_id: string;
+  name: string;
+  created_at: string;
+};
+
 type CreateApplicationInput = {
   company: string;
   role: string;
@@ -202,4 +208,5 @@ export type {
   ApplicationStatus,
   ApplicationStatusHistory,
   CreateApplicationInput,
+  SavedResume,
 };
