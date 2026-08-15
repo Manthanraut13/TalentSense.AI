@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 import { useStorage } from "@plasmohq/storage/hook"
 import axios from "axios"
 
-const API_BASE = process.env.PLASMO_PUBLIC_API_BASE || "http://localhost:8000"
-const FULL_RESULTS_URL = (process.env.PLASMO_PUBLIC_APP_URL || "http://localhost:5173") + "/results/"
+const API_BASE = (process.env.PLASMO_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/+$/, "")
+const FULL_RESULTS_URL = (process.env.PLASMO_PUBLIC_APP_URL || "http://localhost:5173").replace(/\/+$/, "") + "/results/"
 
 type PendingAnalysis = {
   jdText: string
@@ -39,6 +39,10 @@ function extractErrorMessage(caught: unknown): string {
     return caught.message
   }
   return "Something went wrong. Please try again."
+}
+
+function isAuthError(caught: unknown): boolean {
+  return axios.isAxiosError(caught) && caught.response?.status === 401
 }
 
 export default function SidePanel() {
@@ -88,7 +92,14 @@ export default function SidePanel() {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setSavedResumes(res.data))
-      .catch((e) => setError(extractErrorMessage(e)))
+      .catch((e) => {
+        if (isAuthError(e)) {
+          setToken("")
+          setSavedResumes([])
+          return
+        }
+        setError(extractErrorMessage(e))
+      })
       .finally(() => setLoadingResumes(false))
   }, [token])
 
@@ -112,6 +123,11 @@ export default function SidePanel() {
       })
       setResult(data)
     } catch (e) {
+      if (isAuthError(e)) {
+        setToken("")
+        setResult(null)
+        return
+      }
       setError(extractErrorMessage(e))
     } finally {
       setLoading(false)
@@ -123,12 +139,29 @@ export default function SidePanel() {
       <div style={{ padding: 24, fontFamily: "Inter, sans-serif", background: "#0F0F0F", minHeight: "100vh", color: "#F5F5F5" }}>
         <h2 style={{ color: "#10B981", marginBottom: 12 }}>Resume Analyzer</h2>
         <p style={{ color: "#A3A3A3", fontSize: 14, marginBottom: 12 }}>
-          Sign in on the web app first, then paste your Clerk token below (or set it in chrome.storage as <code>clerk_token</code>).
+          Sign in on the web app first, then paste your Clerk token below.
         </p>
+        <p style={{ color: "#A3A3A3", fontSize: 12, marginBottom: 12 }}>
+          ⚠️ Normal Clerk tokens expire in ~60 seconds. For a token that lasts much longer, run this in the web app console (F12):
+        </p>
+        <pre
+          style={{
+            background: "#242424",
+            border: "1px solid #2E2E2E",
+            color: "#10B981",
+            padding: "10px 12px",
+            borderRadius: 8,
+            fontSize: 12,
+            overflowX: "auto",
+            marginBottom: 12,
+          }}
+        >
+{`await window.Clerk?.session?.getToken({ template: "extension" })`}
+        </pre>
         <input
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder="Paste your Clerk session token..."
+          placeholder="Paste your Clerk token..."
           style={{
             width: "100%",
             background: "#242424",
