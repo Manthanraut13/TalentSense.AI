@@ -6,7 +6,7 @@ from app.api.deps import get_current_user
 from app.services.resume_service import (
     save_resume, get_resumes, get_resume_by_id, delete_resume
 )
-from app.services.parser import extract_text_from_pdf, format_resume_for_llm
+from app.services.parser import ParsedResume, extract_text_from_pdf, format_resume_for_llm
 from app.services.sanitizer import sanitize_text, validate_pdf_bytes, MAX_RESUME_CHARS
 from app.services.user_service import get_user_plan
 
@@ -36,7 +36,7 @@ async def create_resume(
         pdf_bytes = await resume_file.read()
         validate_pdf_bytes(pdf_bytes)
         sections = extract_text_from_pdf(pdf_bytes)
-        content = format_resume_for_llm(sections)
+        content = format_resume_for_llm(ParsedResume(text=sections))
         logger.debug("Resume PDF parsed: filename=%s, chars=%d", resume_file.filename, len(content))
     else:
         if not resume_text:
