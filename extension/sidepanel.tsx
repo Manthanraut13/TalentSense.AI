@@ -257,6 +257,17 @@ export default function SidePanel() {
         {loading ? "Analyzing..." : "Analyze Match"}
       </button>
 
+      {!jdText ? (
+        <p style={{ fontSize: 12, color: "#F59E0B", marginBottom: 16 }}>
+          ⚠️ No job description loaded. Click the <strong>⚡ Analyze Match</strong> button on a
+          LinkedIn / Indeed / Naukri job page to load it.
+        </p>
+      ) : !selectedResumeId ? (
+        <p style={{ fontSize: 12, color: "#F59E0B", marginBottom: 16 }}>
+          ⚠️ Select a resume from the dropdown above to enable analysis.
+        </p>
+      ) : null}
+
       {error ? (
         <div
           style={{
