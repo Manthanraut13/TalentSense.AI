@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useStorage } from "@plasmohq/storage/hook"
 import axios from "axios"
 
@@ -27,6 +27,9 @@ type AnalysisResult = {
   improvement_tips: string[]
 }
 
+type JdStatus = "idle" | "fetching" | "loaded" | "empty"
+type AnalysisPhase = "idle" | "fetching_resume" | "sending" | "analyzing" | "done"
+
 const scoreColor = (score: number) => (score >= 80 ? "#10B981" : score >= 60 ? "#F59E0B" : "#EF4444")
 
 function extractErrorMessage(caught: unknown): string {
@@ -45,6 +48,14 @@ function isAuthError(caught: unknown): boolean {
   return axios.isAxiosError(caught) && caught.response?.status === 401
 }
 
+const phaseLabel: Record<AnalysisPhase, string> = {
+  idle: "",
+  fetching_resume: "Fetching your resume...",
+  sending: "Sending to the analyzer...",
+  analyzing: "AI is analyzing the job vs your resume...",
+  done: "Analysis complete!",
+}
+
 export default function SidePanel() {
   const [jdText, setJdText] = useState("")
   const [jobTitle, setJobTitle] = useState("")
@@ -56,6 +67,12 @@ export default function SidePanel() {
   const [loadingResumes, setLoadingResumes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useStorage<string>("clerk_token", "")
+  const [jdStatus, setJdStatus] = useState<JdStatus>("idle")
+  const [showManualPaste, setShowManualPaste] = useState(false)
+  const [manualJd, setManualJd] = useState("")
+  const [phase, setPhase] = useState<AnalysisPhase>("idle")
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef<number | null>(null)
 
   const loadPendingAnalysis = async () => {
     const pending = await chrome.storage.session.get("pendingAnalysis")
@@ -64,11 +81,52 @@ export default function SidePanel() {
       setJdText(analysis.jdText || "")
       setJobTitle(analysis.jobTitle || "")
       setSourceUrl(analysis.sourceUrl || "")
+      setJdStatus(analysis.jdText ? "loaded" : "empty")
+    }
+  }
+
+  const fetchJdFromPage = async () => {
+    setJdStatus("fetching")
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id) throw new Error("no active tab")
+      const resp = (await chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })) as PendingAnalysis | undefined
+      if (resp?.jdText) {
+        setJdText(resp.jdText)
+        setJobTitle(resp.jobTitle || "")
+        setSourceUrl(resp.sourceUrl || tab.url || "")
+        setJdStatus("loaded")
+        return
+      }
+      setJdStatus("empty")
+    } catch (e) {
+      console.error("[sidepanel] fetchJdFromPage failed", e)
+      setJdStatus("empty")
     }
   }
 
   useEffect(() => {
     loadPendingAnalysis()
+    if (!token) return
+    chrome.tabs
+      .query({ active: true, currentWindow: true })
+      .then(([tab]) => {
+        if (!tab?.id) return
+        return chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })
+      })
+      .then((resp) => {
+        const r = resp as PendingAnalysis | undefined
+        if (r?.jdText) {
+          setJdText(r.jdText)
+          setJobTitle(r.jobTitle || "")
+          setSourceUrl(r.sourceUrl || "")
+          setJdStatus("loaded")
+        } else {
+          setJdStatus((s) => (s === "idle" ? "empty" : s))
+        }
+      })
+      .catch(() => setJdStatus((s) => (s === "idle" ? "empty" : s)))
+
     chrome.storage.session.onChanged.addListener((changes) => {
       if (changes.pendingAnalysis) {
         const analysis = changes.pendingAnalysis.newValue as PendingAnalysis | undefined
@@ -76,10 +134,23 @@ export default function SidePanel() {
           setJdText(analysis.jdText || "")
           setJobTitle(analysis.jobTitle || "")
           setSourceUrl(analysis.sourceUrl || "")
+          setJdStatus(analysis.jdText ? "loaded" : "empty")
         }
       }
     })
-  }, [])
+  }, [token])
+
+  useEffect(() => {
+    if (phase !== "analyzing") return
+    setElapsed(0)
+    elapsedRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => {
+      if (elapsedRef.current !== null) {
+        clearInterval(elapsedRef.current)
+        elapsedRef.current = null
+      }
+    }
+  }, [phase])
 
   useEffect(() => {
     if (!token) {
@@ -108,6 +179,7 @@ export default function SidePanel() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setPhase("fetching_resume")
     try {
       const resume = await axios.get<{ content: string }>(`${API_BASE}/api/v1/resumes/${selectedResumeId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -118,20 +190,39 @@ export default function SidePanel() {
       formData.append("input_mode", "text")
       formData.append("resume_text", resume.data.content)
 
-      const { data } = await axios.post<AnalysisResult>(`${API_BASE}/api/v1/analyze`, formData, {
+      setPhase("sending")
+      const postPromise = axios.post<AnalysisResult>(`${API_BASE}/api/v1/analyze`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      setPhase("analyzing")
+      const { data } = await postPromise
       setResult(data)
+      setPhase("done")
     } catch (e) {
       if (isAuthError(e)) {
         setToken("")
         setResult(null)
+        setPhase("idle")
         return
       }
       setError(extractErrorMessage(e))
+      setPhase("idle")
     } finally {
       setLoading(false)
     }
+  }
+
+  const startManualPaste = () => {
+    setManualJd("")
+    setShowManualPaste(true)
+  }
+
+  const useManualJd = () => {
+    if (!manualJd.trim()) return
+    setJdText(manualJd)
+    setJdStatus("loaded")
+    setShowManualPaste(false)
+    setManualJd("")
   }
 
   if (!token) {
@@ -179,16 +270,143 @@ export default function SidePanel() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Inter, sans-serif", background: "#0F0F0F", minHeight: "100vh", color: "#F5F5F5" }}>
+      <style>{`
+        @keyframes rja-spin { to { transform: rotate(360deg); } }
+        .rja-spinner {
+          display: inline-block; width: 14px; height: 14px;
+          border: 2px solid #10B981; border-top-color: transparent;
+          border-radius: 50%; animation: rja-spin .8s linear infinite;
+          vertical-align: middle;
+        }
+      `}</style>
       <h2 style={{ color: "#10B981", fontSize: 16, marginBottom: 16 }}>⚡ Resume Analyzer</h2>
 
-      {jobTitle ? (
-        <div style={{ fontSize: 13, color: "#A3A3A3", marginBottom: 4 }}>
-          Job: <strong style={{ color: "#F5F5F5" }}>{jobTitle}</strong>
+      {/* Job description status card */}
+      <div
+        style={{
+          background: "#1A1A1A",
+          border: "1px solid #2E2E2E",
+          borderRadius: 10,
+          padding: "12px 14px",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {jdStatus === "fetching" ? (
+              <>
+                <span className="rja-spinner" /> Fetching job description…
+              </>
+            ) : jdStatus === "loaded" ? (
+              <>
+                <span style={{ color: "#10B981" }}>●</span> Job description loaded ({jdText.length.toLocaleString()} chars)
+              </>
+            ) : jdStatus === "empty" ? (
+              <>
+                <span style={{ color: "#F59E0B" }}>●</span> No job description yet
+              </>
+            ) : (
+              "Job description"
+            )}
+          </span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              onClick={fetchJdFromPage}
+              disabled={jdStatus === "fetching"}
+              style={{
+                background: "#242424",
+                color: "#10B981",
+                border: "1px solid #10B98140",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              ↻ Fetch from page
+            </button>
+            <button
+              onClick={startManualPaste}
+              style={{
+                background: "#242424",
+                color: "#A3A3A3",
+                border: "1px solid #2E2E2E",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Paste manually
+            </button>
+          </div>
         </div>
-      ) : null}
-      {sourceUrl ? (
-        <div style={{ fontSize: 12, color: "#525252", marginBottom: 12, wordBreak: "break-all" }}>{sourceUrl}</div>
-      ) : null}
+
+        {jobTitle ? (
+          <div style={{ fontSize: 12, color: "#A3A3A3", marginBottom: 4 }}>
+            Job: <strong style={{ color: "#F5F5F5" }}>{jobTitle}</strong>
+          </div>
+        ) : null}
+        {sourceUrl ? (
+          <div style={{ fontSize: 11, color: "#525252", wordBreak: "break-all" }}>{sourceUrl}</div>
+        ) : null}
+
+        {showManualPaste ? (
+          <div style={{ marginTop: 10 }}>
+            <textarea
+              value={manualJd}
+              onChange={(e) => setManualJd(e.target.value)}
+              placeholder="Paste the job description here..."
+              rows={6}
+              style={{
+                width: "100%",
+                background: "#0F0F0F",
+                border: "1px solid #2E2E2E",
+                color: "#F5F5F5",
+                padding: "8px 12px",
+                borderRadius: 8,
+                fontSize: 12,
+                boxSizing: "border-box",
+                fontFamily: "inherit",
+                resize: "vertical",
+              }}
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+              <button
+                onClick={useManualJd}
+                disabled={!manualJd.trim()}
+                style={{
+                  background: "#10B981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: manualJd.trim() ? "pointer" : "not-allowed",
+                  opacity: manualJd.trim() ? 1 : 0.5,
+                }}
+              >
+                Use this text
+              </button>
+              <button
+                onClick={() => setShowManualPaste(false)}
+                style={{
+                  background: "transparent",
+                  color: "#A3A3A3",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {jdText ? (
         <div
@@ -206,11 +424,7 @@ export default function SidePanel() {
         >
           {jdText.length > 220 ? `${jdText.slice(0, 220)}…` : jdText}
         </div>
-      ) : (
-        <p style={{ fontSize: 13, color: "#A3A3A3", marginBottom: 12 }}>
-          Open a LinkedIn, Indeed, or Naukri job page and click the ⚡ Analyze Match button.
-        </p>
-      )}
+      ) : null}
 
       <select
         value={selectedResumeId}
@@ -249,23 +463,69 @@ export default function SidePanel() {
           borderRadius: 8,
           fontWeight: 600,
           fontSize: 14,
-          cursor: "pointer",
+          cursor: loading ? "wait" : !selectedResumeId || !jdText ? "not-allowed" : "pointer",
           marginBottom: 16,
           opacity: !selectedResumeId || !jdText ? 0.5 : 1,
         }}
       >
-        {loading ? "Analyzing..." : "Analyze Match"}
+        {loading ? (
+          <span>
+            <span className="rja-spinner" style={{ borderColor: "white", borderTopColor: "transparent" }} />{" "}
+            {phaseLabel[phase]}
+          </span>
+        ) : (
+          "Analyze Match"
+        )}
       </button>
 
-      {!jdText ? (
+      {!jdText && !showManualPaste ? (
         <p style={{ fontSize: 12, color: "#F59E0B", marginBottom: 16 }}>
-          ⚠️ No job description loaded. Click the <strong>⚡ Analyze Match</strong> button on a
-          LinkedIn / Indeed / Naukri job page to load it.
+          ⚠️ No job description loaded. Click <strong>↻ Fetch from page</strong> above, or open the side panel from a
+          job page with the <strong>⚡ Analyze Match</strong> button.
         </p>
-      ) : !selectedResumeId ? (
+      ) : jdText && !selectedResumeId ? (
         <p style={{ fontSize: 12, color: "#F59E0B", marginBottom: 16 }}>
           ⚠️ Select a resume from the dropdown above to enable analysis.
         </p>
+      ) : null}
+
+      {loading && phase !== "idle" ? (
+        <div
+          style={{
+            background: "#1A1A1A",
+            border: "1px solid #2E2E2E",
+            borderRadius: 10,
+            padding: "12px 14px",
+            marginBottom: 16,
+          }}
+        >
+          {[
+            { key: "fetching_resume", label: "Fetching your resume" },
+            { key: "sending", label: "Sending request to the server" },
+            { key: "analyzing", label: "AI analyzing resume vs job" },
+          ].map((step) => {
+            const order = ["fetching_resume", "sending", "analyzing"]
+            const stepIdx = order.indexOf(step.key)
+            const phaseIdx = phase === "done" ? 3 : order.indexOf(phase)
+            const isDone = phaseIdx > stepIdx
+            const isActive = phaseIdx === stepIdx
+            return (
+              <div key={step.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+                {isDone ? (
+                  <span style={{ color: "#10B981", fontSize: 13 }}>✓</span>
+                ) : isActive ? (
+                  <span className="rja-spinner" />
+                ) : (
+                  <span style={{ color: "#525252", fontSize: 13 }}>○</span>
+                )}
+                <span style={{ fontSize: 12, color: isDone || isActive ? "#F5F5F5" : "#525252" }}>{step.label}</span>
+                {isActive && phase === "analyzing" ? (
+                  <span style={{ fontSize: 11, color: "#10B981", marginLeft: "auto" }}>{elapsed}s</span>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
       ) : null}
 
       {error ? (
