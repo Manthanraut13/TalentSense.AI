@@ -172,7 +172,6 @@ export default function SidePanel() {
 
   useEffect(() => {
     loadPendingAnalysis()
-    if (!token) return
     const tryAutoFetch = async () => {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -212,7 +211,7 @@ export default function SidePanel() {
         }
       }
     })
-  }, [token])
+  }, [])
 
   useEffect(() => {
     if (phase !== "analyzing") return
