@@ -28,12 +28,14 @@
     "permissions": [
       "storage",
       "activeTab",
-      "sidePanel"
+      "sidePanel",
+      "scripting",
+      "tabs"
     ],
     "host_permissions": [
-      "https://www.linkedin.com/*",
-      "https://www.indeed.com/*",
-      "https://www.naukri.com/*",
+      "https://*.linkedin.com/*",
+      "https://*.indeed.com/*",
+      "https://*.naukri.com/*",
       "https://resume-job-analyzer-uhg9.onrender.com/*"
     ]
   },

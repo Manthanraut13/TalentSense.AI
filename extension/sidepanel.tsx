@@ -90,7 +90,12 @@ export default function SidePanel() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.id) throw new Error("no active tab")
-      const resp = (await chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })) as PendingAnalysis | undefined
+      let resp: PendingAnalysis | undefined
+      try {
+        resp = (await chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })) as PendingAnalysis | undefined
+      } catch {
+        resp = await injectExtractor(tab.id)
+      }
       if (resp?.jdText) {
         setJdText(resp.jdText)
         setJobTitle(resp.jobTitle || "")
@@ -105,27 +110,96 @@ export default function SidePanel() {
     }
   }
 
+  const injectExtractor = async (tabId: number): Promise<PendingAnalysis | undefined> => {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const firstText = (selectors: string[]): string => {
+          for (const selector of selectors) {
+            const el = document.querySelector(selector) as HTMLElement | null
+            const text = el?.innerText?.trim()
+            if (text) return text
+          }
+          return ""
+        }
+        const host = window.location.hostname
+        if (host.includes("linkedin.com")) {
+          return {
+            jdText: firstText([
+              ".jobs-description__content",
+              ".job-view-layout",
+              ".show-more-less-html__markup",
+              ".jobs-box__html-content",
+              "#job-details",
+            ]),
+            jobTitle: firstText([
+              ".job-details-jobs-unified-top-card__job-title",
+              ".jobs-unified-top-card__title",
+              "h1",
+            ]),
+            sourceUrl: window.location.href,
+          }
+        }
+        if (host.includes("indeed.com")) {
+          return {
+            jdText: firstText(["#jobDescriptionText", ".jobsearch-JobComponent-description"]),
+            jobTitle: firstText([".jobsearch-JobInfoHeader-title", "h1"]),
+            sourceUrl: window.location.href,
+          }
+        }
+        if (host.includes("naukri.com")) {
+          return {
+            jdText: firstText([
+              ".job-desc",
+              ".styles_JDC__dang-inner-1Mepc",
+              ".jd-section",
+              "[class*='job-description']",
+            ]),
+            jobTitle: firstText(["h1", ".job-title"]),
+            sourceUrl: window.location.href,
+          }
+        }
+        const main = document.querySelector("main") as HTMLElement | null
+        return {
+          jdText: main?.innerText?.trim() ?? "",
+          jobTitle: "",
+          sourceUrl: window.location.href,
+        }
+      },
+    })
+    return result?.result as PendingAnalysis | undefined
+  }
+
   useEffect(() => {
     loadPendingAnalysis()
     if (!token) return
-    chrome.tabs
-      .query({ active: true, currentWindow: true })
-      .then(([tab]) => {
-        if (!tab?.id) return
-        return chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })
-      })
-      .then((resp) => {
-        const r = resp as PendingAnalysis | undefined
-        if (r?.jdText) {
-          setJdText(r.jdText)
-          setJobTitle(r.jobTitle || "")
-          setSourceUrl(r.sourceUrl || "")
+    const tryAutoFetch = async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id) {
+          setJdStatus((s) => (s === "idle" ? "empty" : s))
+          return
+        }
+        let resp: PendingAnalysis | undefined
+        try {
+          resp = (await chrome.tabs.sendMessage(tab.id, { type: "FETCH_JD" })) as PendingAnalysis | undefined
+        } catch {
+          resp = await injectExtractor(tab.id)
+        }
+        if (resp?.jdText) {
+          setJdText(resp.jdText)
+          setJobTitle(resp.jobTitle || "")
+          setSourceUrl(resp.sourceUrl || tab.url || "")
           setJdStatus("loaded")
         } else {
           setJdStatus((s) => (s === "idle" ? "empty" : s))
         }
-      })
-      .catch(() => setJdStatus((s) => (s === "idle" ? "empty" : s)))
+      } catch (e) {
+        console.error("[sidepanel] auto-fetch failed", e)
+        setJdStatus((s) => (s === "idle" ? "empty" : s))
+      }
+    }
+    tryAutoFetch()
 
     chrome.storage.session.onChanged.addListener((changes) => {
       if (changes.pendingAnalysis) {

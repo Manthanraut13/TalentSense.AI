@@ -3,10 +3,10 @@ import type { PlasmoCSConfig } from "plasmo"
 
 export const config: PlasmoCSConfig = {
   matches: [
-    "https://www.linkedin.com/jobs/*",
+    "https://*.linkedin.com/jobs/*",
     "https://*.indeed.com/viewjob*",
-    "https://www.naukri.com/job-listings*",
-    "https://www.naukri.com/job-details*",
+    "https://*.naukri.com/job-listings*",
+    "https://*.naukri.com/job-details*",
   ],
   run_at: "document_idle",
 }
