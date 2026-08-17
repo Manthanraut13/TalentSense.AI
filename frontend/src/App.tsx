@@ -207,9 +207,6 @@ function MainNav() {
       <NavLink to="/applications" className={linkClass}>
         Applications
       </NavLink>
-      <NavLink to="/account" className={linkClass}>
-        Account
-      </NavLink>
       <NavLink to="/coach" className={linkClass}>
         Career Coach
       </NavLink>
@@ -237,14 +234,14 @@ function AuthNav() {
   return (
     <div className="ml-auto flex items-center gap-5">
       <UsageBadge />
-      <div className="flex items-center gap-2">
+      <Link to="/account" className="flex items-center gap-2 transition-opacity hover:opacity-80">
         <span className="hidden text-[15px] font-medium text-textPrimary md:block">
           {user.firstName || user.emailAddresses[0]?.emailAddress}
         </span>
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white" aria-hidden="true">
           <User size={18} />
         </div>
-      </div>
+      </Link>
       <Link
         to="/pricing"
         className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-medium text-white transition hover:opacity-90"
