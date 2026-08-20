@@ -6,7 +6,7 @@ export default function SignInPage() {
       <SignIn
         routing="path"
         path="/sign-in"
-        afterSignInUrl="/"
+        afterSignInUrl="/home"
         appearance={{
           variables: {
             colorPrimary: '#0EA5A0',

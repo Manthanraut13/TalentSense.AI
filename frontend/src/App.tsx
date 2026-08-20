@@ -21,6 +21,7 @@ const ApplicationsPage = lazy(() => import('./pages/Applications'));
 const AccountPage = lazy(() => import('./pages/Account'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const UpgradeSuccessPage = lazy(() => import('./pages/UpgradeSuccessPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 function LoadingFallback() {
   return (
@@ -52,7 +53,7 @@ export function App() {
       {!isSharePage ? (
         <header className="sticky top-0 z-50 border-b border-line bg-surface">
           <nav className="mx-auto flex h-[60px] max-w-[1280px] items-center gap-8 px-6">
-            <a href="/" className="flex shrink-0 items-center gap-3">
+            <Link to={isLoaded ? '/home' : '/'} className="flex shrink-0 items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary text-white shadow-card">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -63,7 +64,7 @@ export function App() {
                 </svg>
               </span>
               <span className="text-lg font-semibold tracking-tight text-primary">TalentSense AI</span>
-            </a>
+            </Link>
             <MainNav />
             <AuthNav />
           </nav>
@@ -102,7 +103,12 @@ export function App() {
         />
 
         {/* Protected routes */}
-        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route path="/" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <LandingPage />
+          </Suspense>
+        } />
         <Route
           path="/compare"
           element={
@@ -198,6 +204,9 @@ function MainNav() {
 
   return (
     <nav className="hidden lg:flex items-center gap-7">
+      <NavLink to="/home" className={linkClass}>
+        Analyze
+      </NavLink>
       <NavLink to="/dashboard" className={linkClass} end>
         Dashboard
       </NavLink>
