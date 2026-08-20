@@ -253,13 +253,13 @@ function AuthNav() {
       </Link>
       <Link
         to="/pricing"
-        className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+        className="shrink-0 whitespace-nowrap rounded-lg bg-secondary px-3.5 py-2 text-sm font-medium text-white transition hover:opacity-90"
       >
         Upgrade
       </Link>
       <button
         onClick={() => signOut()}
-        className="rounded-lg border border-line px-3 py-2 text-sm text-textSecondary transition hover:bg-elevated hover:text-textPrimary"
+        className="shrink-0 whitespace-nowrap rounded-lg border border-line px-3 py-2 text-sm text-textSecondary transition hover:bg-elevated hover:text-textPrimary"
       >
         Sign out
       </button>
