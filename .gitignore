@@ -73,3 +73,5 @@ htmlcov/
 # Local agent artifacts
 .waylog/
 antigravity_export/
+
+strix_runs/
