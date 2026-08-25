@@ -54,7 +54,7 @@ export function App() {
         <header className="sticky top-0 z-50 border-b border-line bg-surface">
           <nav className="mx-auto flex h-[60px] max-w-[1280px] items-center gap-8 px-6">
             <Link to={isLoaded ? '/home' : '/'} className="flex shrink-0 items-center gap-3">
-              <img src="/logo.png" alt="TalentSense AI" className="h-9 w-9 rounded-[10px] shadow-card object-cover" />
+              <img src="/logo.png" alt="TalentSense AI" className="h-12 w-12 object-contain" />
               <span className="text-lg font-semibold tracking-tight text-primary">TalentSense AI</span>
             </Link>
             <MainNav />
