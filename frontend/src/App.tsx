@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { User } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 
 import { setTokenGetter } from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -70,6 +71,8 @@ export function App() {
           </nav>
         </header>
       ) : null}
+
+      <Analytics />
 
       <Routes>
         {/* Public routes */}
